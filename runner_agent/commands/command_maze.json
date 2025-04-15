@@ -1,0 +1,82 @@
+{
+  "commands": [
+    {
+      "command": "forward",
+      "args": [
+        "600"
+      ]
+    },
+    {
+      "command": "turn",
+      "args": [
+        "90"
+      ]
+    },
+    {
+      "command": "forward",
+      "args": [
+        "200"
+      ]
+    },
+    {
+      "command": "turn",
+      "args": [
+        "-90"
+      ]
+    },
+    {
+      "command": "forward",
+      "args": [
+        "200"
+      ]
+    },
+    {
+      "command": "turn",
+      "args": [
+        "-90"
+      ]
+    },
+    {
+      "command": "forward",
+      "args": [
+        "200"
+      ]
+    },
+    {
+      "command": "turn",
+      "args": [
+        "90"
+      ]
+    },
+    {
+      "command": "forward",
+      "args": [
+        "400"
+      ]
+    },
+    {
+      "command": "turn",
+      "args": [
+        "-90"
+      ]
+    },
+    {
+      "command": "forward",
+      "args": [
+        "200"
+      ]
+    },
+    {
+      "command": "turn",
+      "args": [
+        "90"
+      ]
+    },
+    {
+      "command": "forward",
+      "args": [
+        "200"
+      ]
+    }
+  ]
+}

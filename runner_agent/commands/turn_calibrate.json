@@ -1,0 +1,12 @@
+{
+  "commands": [
+    {
+      "command": "calibrate_sensors",
+      "args": []
+    },
+    {
+      "command": "calibrate_turn",
+      "args": []
+    }
+  ]
+}

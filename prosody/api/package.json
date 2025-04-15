@@ -1,0 +1,24 @@
+{
+  "name": "xmpp-monitor-api",
+  "version": "1.0.0",
+  "description": "API for XMPP message monitoring with Bun",
+  "type": "module",
+  "scripts": {
+    "start": "bun run index.js"
+  },
+  "module": "index.js",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@xmpp/client": "^0.13.4",
+    "body-parser": "^2.2.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "ws": "^8.18.1"
+  }
+}

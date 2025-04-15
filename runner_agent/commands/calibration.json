@@ -1,0 +1,8 @@
+{
+  "commands": [
+    {
+      "command": "full_calibration",
+      "args": []
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+.venv
+__pycache__
+uv.lock
+.ropeproject
+node_modules
+received_photos
+certs
+calibrations

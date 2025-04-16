@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import ssl
-import argparse
 
 import aiosasl
 import aioxmpp.security_layer
@@ -74,7 +73,6 @@ async def run_alphabot_controller(recipient, instructions):
         jid=xmpp_jid, password=xmpp_password
     )
 
-
     await alphabot_controller.start(auto_register=True)
 
     send_instructions_behaviour = alphabot_controller.SendInstructionsBehaviour(
@@ -140,19 +138,13 @@ async def main(target, command_file="/app/src/commands/command.json"):
 
         logger.info("Alphabot controller has completed all instructions.")
 
-        while camera_receiver.is_alive():
-            await asyncio.sleep(1)
-
     except KeyboardInterrupt:
         logger.info("Received keyboard interrupt. Shutting down...")
     finally:
         if "alphabot_controller" in locals():
             await alphabot_controller.stop()
-        if "camera_receiver" in locals():
-            await camera_receiver.stop()
         logger.info("All agents stopped.")
 
 
 if __name__ == "__main__":
-
     asyncio.run(main(target=TARGET))

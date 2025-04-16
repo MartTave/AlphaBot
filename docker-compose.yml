@@ -85,6 +85,16 @@ services:
     extra_hosts:
       - "prosody:${PROSODY_IP}"
 
+  mosquitto:
+    image: eclipse-mosquitto
+    container_name: mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+
 networks:
   xmpp_network:
     driver: bridge

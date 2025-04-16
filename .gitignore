@@ -7,3 +7,5 @@ received_photos
 certs
 calibrations
 .env
+mosquitto/log
+mosquitto/data

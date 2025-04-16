@@ -23,12 +23,45 @@ const addCorsHeaders = (response) => {
 
 // Store connected clients
 const clients = new Set();
+// Add connection tracking at the top with other state storage
+const agentConnections = new Map();
+const OFFLINE_TIMEOUT = 90000; // 90 seconds - 3 heartbeats
 
 // Store robot agents
 const agentStates = new Map([
   ["alpha-pi-4b-agent-1", { status: "OFF", description: "OFF" }],
   ["alpha-pi-4b-agent-2", { status: "OFF", description: "OFF" }],
 ]);
+
+// Add a function to check agent connection status
+const checkAgentConnection = (agentJid) => {
+  const lastConnection = agentConnections.get(agentJid);
+  if (!lastConnection) return;
+
+  const now = Date.now();
+  if (now - lastConnection > OFFLINE_TIMEOUT) {
+    // Agent hasn't reconnected within timeout period, mark as offline
+    const stateData = {
+      status: "OFF",
+      description: "OFF",
+      timestamp: now,
+    };
+    agentStates.set(agentJid, stateData);
+    agentConnections.delete(agentJid);
+
+    // Broadcast offline status to all connected WebSocket clients
+    const offlineUpdate = {
+      type: "state_update",
+      agent_jid: agentJid,
+      state: "OFF",
+      label: "",
+    };
+
+    clients.forEach((client) => {
+      client.send(JSON.stringify(offlineUpdate));
+    });
+  }
+};
 
 // HTTP Server with API endpoints and WebSocket support
 const server = serve({
@@ -152,7 +185,7 @@ const server = serve({
       });
     }
 
-    // Message endpoint for Prosody
+    // Modify your message endpoint to handle connection tracking
     if (url.pathname === "/api/messages" && req.method === "POST") {
       const authHeader = req.headers.get("authorization");
       const token = authHeader?.split(" ")[1];
@@ -164,15 +197,21 @@ const server = serve({
       return req.json().then((messageData) => {
         console.log("Received message data:", messageData);
 
-        // Store state updates
         if (messageData.type === "state_update") {
+          // Update last connection time for this agent
+          agentConnections.set(messageData.agent_jid, Date.now());
+
           const stateData = {
             status: messageData.state.toUpperCase(),
             description: `${messageData.state.toUpperCase()} ${messageData.label}`,
             timestamp: messageData.timestamp,
           };
           agentStates.set(messageData.agent_jid, stateData);
-          console.log("Updated agent states:", Object.fromEntries(agentStates));
+
+          // Schedule a check for this agent's connection status
+          setTimeout(() => {
+            checkAgentConnection(messageData.agent_jid);
+          }, OFFLINE_TIMEOUT);
         }
 
         // Broadcast to all connected WebSocket clients
@@ -195,9 +234,6 @@ const server = serve({
     open(ws) {
       console.log("Client connected");
       clients.add(ws);
-
-      // Send connection confirmation
-      ws.send(JSON.stringify({ type: "connection", status: "connected" }));
 
       // Send current agent states
       const initialStates = {

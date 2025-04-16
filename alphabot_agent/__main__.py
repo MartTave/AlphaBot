@@ -32,7 +32,7 @@ class AlphaBotAgent(Agent):
         self.api_url = "http://prosody:3000/api/messages"
         self.api_token = os.environ.get("API_TOKEN", "your_secret_token")
         self.session = None
-        self._state = None  # Initialize _state attribute
+        self._state = None
 
     @property
     def state(self):
@@ -59,10 +59,15 @@ class AlphaBotAgent(Agent):
             }
             print(state_update)
 
+            # Use keepalive connection
             async with self.session.post(
                 self.api_url,
                 json=state_update,
-                headers={"Authorization": f"Bearer {self.api_token}"},
+                headers={
+                    "Authorization": f"Bearer {self.api_token}",
+                    "Connection": "keep-alive",  # Add keepalive header
+                },
+                timeout=aiohttp.ClientTimeout(total=None),  # No timeout
             ) as response:
                 if response.status == 200:
                     logger.info(f"State update sent: {self.state.value}")
@@ -75,8 +80,19 @@ class AlphaBotAgent(Agent):
             logger.error(f"Failed to send state update: {e}")
 
     async def setup(self):
-        # Create HTTP session
-        self.session = aiohttp.ClientSession()
+        # Create HTTP session with keepalive
+        timeout = aiohttp.ClientTimeout(total=None)  # No timeout
+        self.session = aiohttp.ClientSession(
+            timeout=timeout,
+            headers={
+                "Connection": "keep-alive",
+                "Keep-Alive": "timeout=60, max=1000",
+            },
+        )
+
+        # Add a periodic heartbeat behavior
+        heartbeat_behavior = self.HeartbeatBehavior()
+        self.add_behaviour(heartbeat_behavior)
 
         # Add command listener behavior
         command_behavior = self.XMPPCommandListener()
@@ -84,6 +100,15 @@ class AlphaBotAgent(Agent):
 
         # Set initial state after setup
         await self.set_state(BotState.IDLE, "")
+
+    # Add a new heartbeat behavior
+    class HeartbeatBehavior(CyclicBehaviour):
+        async def run(self):
+            if self.agent.state:  # Only send heartbeat if we have a state
+                await self.agent.notify_state_change(
+                    ""
+                )  # Send current state as heartbeat
+            await asyncio.sleep(30)
 
     class XMPPCommandListener(CyclicBehaviour):
         async def on_start(self):

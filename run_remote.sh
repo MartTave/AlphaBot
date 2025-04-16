@@ -41,6 +41,6 @@ rsync -avz --progress --exclude '.venv' --exclude '__pycache__' --exclude 'recei
 
 # Then connect and restart docker compose
 echo "Starting the stack in attached mode..."
-ssh -t ${USER}@${HOST} "export AGENT_NAME=${AGENT_NAME};cd /home/raspi/app && docker compose down && docker compose up alphabot_agent"
+ssh -t ${USER}@${HOST} "sudo systemctl stop alphabot.service;export AGENT_NAME=${AGENT_NAME};cd /home/raspi/app && docker compose down && docker compose up alphabot_agent"
 
 echo "Docker-compose stopped.."

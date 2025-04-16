@@ -5,7 +5,8 @@ import { serve } from "bun";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Headers":
+    "Content-Type, Authorization, Upgrade, Sec-WebSocket-Protocol",
 };
 
 const addCorsHeaders = (response) => {
@@ -22,6 +23,12 @@ const addCorsHeaders = (response) => {
 
 // Store connected clients
 const clients = new Set();
+
+// Store robot agents
+const agentStates = new Map([
+  ["alpha-pi-4b-agent-1", { status: "OFF", description: "OFF" }],
+  ["alpha-pi-4b-agent-2", { status: "OFF", description: "OFF" }],
+]);
 
 // HTTP Server with API endpoints and WebSocket support
 const server = serve({
@@ -47,9 +54,14 @@ const server = serve({
         req.headers.get("origin"),
       );
 
-      // Handle WebSocket upgrade
       const upgraded = server.upgrade(req, {
-        headers: corsHeaders,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "*",
+          "Sec-WebSocket-Protocol":
+            req.headers.get("Sec-WebSocket-Protocol") || "",
+        },
       });
 
       if (upgraded) {
@@ -150,7 +162,18 @@ const server = serve({
       }
 
       return req.json().then((messageData) => {
-        console.log("Received message:", messageData);
+        console.log("Received message data:", messageData);
+
+        // Store state updates
+        if (messageData.type === "state_update") {
+          const stateData = {
+            status: messageData.state.toUpperCase(),
+            description: `${messageData.state.toUpperCase()} ${messageData.label}`,
+            timestamp: messageData.timestamp,
+          };
+          agentStates.set(messageData.agent_jid, stateData);
+          console.log("Updated agent states:", Object.fromEntries(agentStates));
+        }
 
         // Broadcast to all connected WebSocket clients
         clients.forEach((client) => {
@@ -172,8 +195,17 @@ const server = serve({
     open(ws) {
       console.log("Client connected");
       clients.add(ws);
-      // Send an initial message to confirm connection
+
+      // Send connection confirmation
       ws.send(JSON.stringify({ type: "connection", status: "connected" }));
+
+      // Send current agent states
+      const initialStates = {
+        type: "initial_states",
+        states: Object.fromEntries(agentStates),
+      };
+      console.log("Sending initial states:", initialStates);
+      ws.send(JSON.stringify(initialStates));
     },
     message(ws, message) {
       console.log("Received WebSocket message:", message);

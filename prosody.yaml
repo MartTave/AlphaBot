@@ -5,6 +5,4 @@ windows:
     panes:
       - shell_command:
           - docker compose up prosody api
-      - shell_command:
-          - docker compose up dashboard
   - window_name: pi

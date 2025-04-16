@@ -1,10 +1,8 @@
 {
   "commands": [
     {
-      "command": "forward",
-      "args": [
-        "600"
-      ]
+      "command": "calibrate_forward_correction",
+      "args": []
     }
   ]
 }

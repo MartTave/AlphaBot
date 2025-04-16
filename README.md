@@ -20,6 +20,8 @@ This repository contains the code and configuration for the AlphaBot project, wh
 
 ### Steps to Run
 
+#### Run the containers
+
 1. **Build and Run the Docker Containers**
 
    Navigate to the root of the repository and run the following command to build and start the Docker containers:
@@ -44,6 +46,13 @@ This repository contains the code and configuration for the AlphaBot project, wh
    ```
 
    Replace `<host_number>` with `1` or `2` depending on the target Raspberry Pi.
+
+#### Command runner
+
+Use the command :
+```sh
+uv run --project ./runner_agent --env-file ./env/prosody.env ./runner_agent/runner.py
+```
 
 ## Configuration
 

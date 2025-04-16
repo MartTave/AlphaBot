@@ -14,6 +14,7 @@ services:
       - XMPP_USERNAME=${AGENT_NAME}
     extra_hosts:
       - "prosody:${PROSODY_IP}"
+
   calibration_agent:
     build: ./calibration_agent/
     container_name: calibration_agent
@@ -25,6 +26,7 @@ services:
       - XMPP_USERNAME=calibration_agent
     extra_hosts:
       - "prosody:${PROSODY_IP}"
+
   prosody:
     image: prosody/prosody:latest
     container_name: prosody
@@ -64,13 +66,24 @@ services:
   dashboard:
     image: dij0s/expose:latest
     container_name: xmpp_dashboard
-    depends_on:
-      - api
     ports:
       - "8888:8888"
     networks:
       xmpp_network:
         ipv4_address: 172.20.0.5
+
+  runner:
+    build: ./runner_agent
+    container_name: runner_agent
+    privileged: true
+    volumes:
+      - ./runner_agent:/app/src
+    env_file: ./env/prosody.env
+    environment:
+      - XMPP_USERNAME=runner
+      - RUNNER_TARGET=${RUNNER_TARGET}
+    extra_hosts:
+      - "prosody:${PROSODY_IP}"
 
 networks:
   xmpp_network:

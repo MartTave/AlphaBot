@@ -3,10 +3,18 @@ import json
 import logging
 import os
 import ssl
+import argparse
 
 import aiosasl
 import aioxmpp.security_layer
 from spade.container import Container
+
+XMPP_JID = os.getenv("XMPP_JID", "runner") + "@prosody"
+
+TARGET = os.getenv("RUNNER_TARGET")
+
+if TARGET is None:
+    raise Exception("RUNNER_TARGET environment variable is not set")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,9 +22,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from alphabot_controller import AlphabotController
-from calibration_sender import CalibrationSender
-from camera_receiver import ReceiverAgent
+from .alphabot_controller import AlphabotController
+from .calibration_sender import CalibrationSender
+from .camera_receiver import ReceiverAgent
 
 
 def create_ssl_context():
@@ -34,7 +42,7 @@ Container.security_layer = aioxmpp.security_layer.SecurityLayer(
     sasl_providers=[
         aiosasl.PLAIN(
             credential_provider=lambda _: (
-                os.getenv("XMPP_JID"),
+                XMPP_JID,
                 os.getenv("XMPP_PASSWORD"),
             )
         )
@@ -42,20 +50,20 @@ Container.security_layer = aioxmpp.security_layer.SecurityLayer(
 )
 
 
-async def run_alphabot_controller(instructions=[]):
-    xmpp_jid = os.getenv("XMPP_JID")
+async def run_alphabot_controller(recipient, instructions):
+    xmpp_jid = XMPP_JID
     xmpp_password = os.getenv("XMPP_PASSWORD")
-    robot_recipient = os.getenv("ROBOT_RECIPIENT")
 
     final_instructions = []
 
     for instr in instructions:
         final_instructions.append(instr["command"] + " ")
-        for a in instr["args"]:
-            string = a
-            if a != instr["args"][-1]:
-                string += " "
-            final_instructions[-1] += string
+        if "args" in instr:
+            for a in instr["args"]:
+                string = a
+                if a != instr["args"][-1]:
+                    string += " "
+                final_instructions[-1] += string
 
     logger.info(f"Starting AlphabotController with JID: {xmpp_jid}")
 
@@ -65,10 +73,12 @@ async def run_alphabot_controller(instructions=[]):
     alphabot_controller = AlphabotController(
         jid=xmpp_jid, password=xmpp_password
     )
+
+
     await alphabot_controller.start(auto_register=True)
 
     send_instructions_behaviour = alphabot_controller.SendInstructionsBehaviour(
-        robot_recipient, final_instructions
+        recipient, final_instructions
     )
     alphabot_controller.add_behaviour(send_instructions_behaviour)
 
@@ -76,7 +86,7 @@ async def run_alphabot_controller(instructions=[]):
 
 
 async def run_camera_receiver():
-    xmpp_jid = os.getenv("XMPP_JID")
+    xmpp_jid = XMPP_JID
     xmpp_password = os.getenv("XMPP_PASSWORD")
 
     logger.info(f"Starting CameraReceiver with JID: {xmpp_jid}")
@@ -94,7 +104,7 @@ async def run_camera_receiver():
 
 
 async def startCalibration():
-    xmpp_jid = os.getenv("XMPP_JID")
+    xmpp_jid = XMPP_JID
     xmpp_password = os.getenv("XMPP_PASSWORD")
 
     calib_sender = CalibrationSender(xmpp_jid, xmpp_password)
@@ -108,8 +118,10 @@ async def startCalibration():
     return calib_sender
 
 
-async def main(command_file="./commands/command.json"):
+async def main(target, command_file="/app/src/commands/command.json"):
     os.makedirs("received_photos", exist_ok=True)
+
+    target = f"alpha-pi-4b-agent-{target}@prosody"
 
     with open(command_file, "r") as file:
         data = json.load(file)
@@ -118,14 +130,6 @@ async def main(command_file="./commands/command.json"):
 
     try:
         alphabot_controller = await run_alphabot_controller(commands)
-        camera_receiver = await run_camera_receiver()
-
-        if not camera_receiver:
-            logger.error(
-                "Failed to start camera receiver. Stopping alphabot controller."
-            )
-            await alphabot_controller.stop()
-            return
 
         logger.info("Both agents running. Press Ctrl+C to stop.")
 
@@ -150,4 +154,5 @@ async def main(command_file="./commands/command.json"):
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+
+    asyncio.run(main(target=TARGET))

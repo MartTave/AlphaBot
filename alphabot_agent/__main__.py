@@ -32,26 +32,32 @@ class AlphaBotAgent(Agent):
         self.api_url = "http://prosody:3000/api/messages"
         self.api_token = os.environ.get("API_TOKEN", "your_secret_token")
         self.session = None
+        self._state = None  # Initialize _state attribute
 
     @property
     def state(self):
         return self._state
 
-    @state.setter
-    def state(self, new_state):
-        self._state = new_state
-        # Schedule state update in the event loop
-        if self.session:
-            asyncio.create_task(self.notify_state_change())
+    async def set_state(self, new_state, command):
+        """Async method to set state and notify about the change."""
+        if self._state != new_state:  # Only update if state actually changes
+            self._state = new_state
+            if self.session:
+                print(
+                    f"Calling notify_state_change for new state: {new_state} with command {command}"
+                )
+                await self.notify_state_change(command)
 
-    async def notify_state_change(self):
+    async def notify_state_change(self, label):
         try:
             state_update = {
                 "agent_jid": self.jid[0],
                 "type": "state_update",
                 "state": self.state.value,
+                "label": label,
                 "timestamp": int(asyncio.get_event_loop().time()),
             }
+            print(state_update)
 
             async with self.session.post(
                 self.api_url,
@@ -77,12 +83,12 @@ class AlphaBotAgent(Agent):
         self.add_behaviour(command_behavior)
 
         # Set initial state after setup
-        self.state = BotState.IDLE
+        await self.set_state(BotState.IDLE, "")
 
     class XMPPCommandListener(CyclicBehaviour):
         async def on_start(self):
             self.ab = AlphaBot2()
-            self.agent.state = BotState.IDLE
+            # Initial state is already set in setup()
 
         async def run(self):
             msg = await self.receive(timeout=100)
@@ -90,9 +96,16 @@ class AlphaBotAgent(Agent):
                 logger.info(
                     f"[Behavior] Received command ({msg.sender}): {msg.body}"
                 )
-                self.agent.state = BotState.EXECUTING
-                await self.process_command(msg.body)
-                self.agent.state = BotState.IDLE
+
+                command = msg.body
+                # Set state to EXECUTING and notify immediately
+                await self.agent.set_state(BotState.EXECUTING, command)
+
+                # Process the command
+                await self.process_command(command)
+
+                # Set state back to IDLE after processing
+                await self.agent.set_state(BotState.IDLE, "")
 
                 # Send a confirmation response
                 reply = Message(to=str(msg.sender))
@@ -164,7 +177,7 @@ class AlphaBotAgent(Agent):
 
 
 async def main():
-    xmpp_domain = os.environ.get("XMPP_DOMAIN", "prosody")
+    xmpp_domain = os.environ.get("XMPP_SERVER", "prosody")
     xmpp_username = os.environ.get("XMPP_USERNAME", "alpha-pi-zero-agent")
     xmpp_jid = f"{xmpp_username}@{xmpp_domain}"
     xmpp_password = os.environ.get("XMPP_PASSWORD", "top_secret")

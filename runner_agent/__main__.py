@@ -129,7 +129,7 @@ async def main(target, command_file="/app/src/commands/command.json"):
     commands = data["commands"]
 
     try:
-        alphabot_controller = await run_alphabot_controller(commands)
+        alphabot_controller = await run_alphabot_controller(target, commands)
 
         logger.info("Both agents running. Press Ctrl+C to stop.")
 

@@ -1,5 +1,6 @@
 // Bun-compatible API server for message monitoring and control
 import { serve } from "bun";
+import * as mqtt from "mqtt";
 
 // Common CORS headers and helper function
 const corsHeaders = {
@@ -32,6 +33,42 @@ const agentStates = new Map([
   ["alpha-pi-4b-agent-1", { status: "OFF", description: "OFF" }],
   ["alpha-pi-4b-agent-2", { status: "OFF", description: "OFF" }],
 ]);
+
+// MQTT Client setup
+const mqttClient = mqtt.connect("mqtt://mosquitto:1883");
+
+mqttClient.on("connect", () => {
+  console.log("Connected to MQTT broker");
+  // Subscribe to the timer topic
+  mqttClient.subscribe("timer", (err) => {
+    if (!err) {
+      console.log("Subscribed to timer topic");
+    }
+  });
+});
+
+mqttClient.on("message", (topic, message) => {
+  try {
+    // Parse the message (it's currently a string representation of an object)
+    const messageData = JSON.parse(message.toString().replace(/'/g, '"')); // Replace single quotes with double quotes
+
+    const wsMessage = {
+      type: "timer",
+      data: {
+        timestamp: messageData.timestamp,
+        event: messageData.event,
+      },
+    };
+
+    // Broadcast to all connected WebSocket clients
+    clients.forEach((client) => {
+      client.send(JSON.stringify(wsMessage));
+    });
+  } catch (error) {
+    console.error("Error processing MQTT message:", error);
+    console.error("Raw message:", message.toString());
+  }
+});
 
 // Add a function to check agent connection status
 const checkAgentConnection = (agentJid) => {

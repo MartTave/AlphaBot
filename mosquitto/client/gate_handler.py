@@ -25,28 +25,10 @@ class gate:
             self.client = BleakClient(self.device)
             print(f"Connecting to {self.address}...")
             await self.client.connect()
-            print("Connexion successful.")
+            print("Connection successful.")
 
     async def disconnect(self):
         await self.client.disconnect()
-
-    async def light_led(self, rgb):
-        """
-        Lights the led to a specific color given with its rgb value.
-
-        Parameters
-        ----------
-                        rgb (list[int]): The RGB value of the color we want on the led, format: [r,g,b] - ex: [255,255,255] for white
-
-        """
-        message = bytes(rgb)
-        await self.client.write_gatt_char(self.LED_CHAR_UUID, message)
-
-    async def light_led_green(self):
-        await self.light_led([0, 255, 0])
-
-    async def shut_led(self):
-        await self.light_led([0, 0, 0])
 
     async def start_listening_sensor(self, func):
         await self.client.start_notify(self.SENSOR_UUID, func)
@@ -75,25 +57,14 @@ class MQTTGateHandler:
         }
         self.gate_instances = {}
 
-    def on_connect(self, client, userdata, flags, reason_code, properties):
-        print(f"Connected to MQTT broker with result code {reason_code}")
-        # You can subscribe to topics here if needed
-        # self.mqtt_client.subscribe("some/control/topic")
-
-    def on_message(self, client, userdata, msg):
-        # Handle incoming MQTT messages if needed
-        print(f"Received message on topic {msg.topic}: {msg.payload.decode()}")
-
     def sensor_callback(self, gate_name, sender, data):
-        """Non-async callback that schedules the async handler"""
         asyncio.create_task(self.sensor_handler(gate_name, sender, data))
 
     async def sensor_handler(self, gate_name, sender, data):
-        """Handler for gate sensor data that publishes to MQTT"""
         # Convert the hex data to a meaningful value
         # Assuming the sensor data indicates a passage when it's non-zero
         if any(data):  # Check if any byte in data is non-zero
-            timestamp = datetime.now().isoformat()
+            timestamp = int(datetime.now().timestamp() * 1000)
             message = {
                 "gate": gate_name,
                 "timestamp": timestamp,
@@ -110,7 +81,6 @@ class MQTTGateHandler:
             await gate.shut_led()
 
     async def setup_gates(self):
-        """Initialize and connect to all gates"""
         for gate_name, address in self.gates.items():
             gate_instance = gate(address)
             await gate_instance.connect()
@@ -122,7 +92,6 @@ class MQTTGateHandler:
             print(f"Setup complete for {gate_name}")
 
     async def run(self):
-        """Main run loop"""
         try:
             # Connect to MQTT broker
             print("Connecting to MQTT broker...")
@@ -149,10 +118,10 @@ class MQTTGateHandler:
             self.mqtt_client.disconnect()
 
 
-async def main():
+async def run_handler():
     handler = MQTTGateHandler()
     await handler.run()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(run_handler())

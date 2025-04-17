@@ -37,7 +37,7 @@ class gate:
 
 
 class MQTTGateHandler:
-    def __init__(self, broker_address="localhost", broker_port=1883):
+    def __init__(self, broker_address="mosquitto", broker_port=1883):
         # MQTT setup
         self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self.broker_address = broker_address
@@ -74,7 +74,6 @@ class MQTTGateHandler:
                 "gate3": "global_end",
             }.get(gate_name)
             message = {
-                "gate": gate_name,
                 "timestamp": timestamp,
                 "event": event_type,
             }

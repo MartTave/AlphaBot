@@ -43,11 +43,25 @@ services:
       xmpp_network:
         ipv4_address: 172.20.0.3
 
+  mosquitto:
+    image: eclipse-mosquitto
+    container_name: mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    networks:
+      xmpp_network:
+        ipv4_address: 172.20.0.7
+
   api:
     image: oven/bun:latest
     container_name: xmpp_api
     depends_on:
       - prosody
+      - mosquitto
     working_dir: /app
     volumes:
       - ./prosody/api:/app
@@ -61,6 +75,7 @@ services:
         ipv4_address: 172.20.0.4
     extra_hosts:
       - "prosody:172.20.0.3"
+      - "mosquitto:172.20.0.7"
       - "internal-api:172.20.0.6"
 
   dashboard:
@@ -85,15 +100,22 @@ services:
     extra_hosts:
       - "prosody:${PROSODY_IP}"
 
-  mosquitto:
-    image: eclipse-mosquitto
-    container_name: mosquitto
-    ports:
-      - "1883:1883"
+  gate_handler:
+    build: ./mosquitto/client
+    container_name: gate_handler
+    privileged: true
     volumes:
-      - ./mosquitto/config:/mosquitto/config
-      - ./mosquitto/data:/mosquitto/data
-      - ./mosquitto/log:/mosquitto/log
+      - ./mosquitto/client:/app/src
+      - /var/run/dbus:/var/run/dbus
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    networks:
+      - xmpp_network
+    extra_hosts:
+      - "mosquitto:172.20.0.7"
 
 networks:
   xmpp_network:

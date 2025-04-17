@@ -9,7 +9,6 @@ from bleak import BleakClient, BleakScanner
 class gate:
     # These should be fixed for every gate. If it doesn't work, do "a ble-scan -d [address of the device]" to get the real ones
     BUTTON_UUID = "794f1fe3-9be8-4875-83ba-731e1037a881"
-    LED_CHAR_UUID = "794f1fe3-9be8-4875-83ba-731e1037a882"
     SENSOR_UUID = "794f1fe3-9be8-4875-83ba-731e1037a883"
 
     def __init__(self, address):
@@ -41,8 +40,6 @@ class MQTTGateHandler:
     def __init__(self, broker_address="localhost", broker_port=1883):
         # MQTT setup
         self.mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-        self.mqtt_client.on_connect = self.on_connect
-        self.mqtt_client.on_message = self.on_message
         self.broker_address = broker_address
         self.broker_port = broker_port
 
@@ -73,12 +70,6 @@ class MQTTGateHandler:
             # Publish to MQTT topic specific to this gate
             self.mqtt_client.publish(f"gates/{gate_name}", str(message))
             print(f"Published passage event for {gate_name}")
-
-            # Light up the LED briefly to indicate detection
-            gate = self.gate_instances[gate_name]
-            await gate.light_led_green()
-            await asyncio.sleep(0.5)
-            await gate.shut_led()
 
     async def setup_gates(self):
         for gate_name, address in self.gates.items():

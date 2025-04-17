@@ -48,8 +48,8 @@ class MQTTGateHandler:
 
         # Gates setup
         self.gates = {
-            "gate1": "D0:31:D0:79:F2:F3",
-            "gate2": "F9:CB:B8:48:B5:92",
+            "gate1": "D0:31:D0:79:F2:F3",  # start gate of agent 1
+            "gate2": "F9:CB:B8:48:B5:92",  # end gate of agent 1
             # Add gate3 address when you have it
         }
         self.gate_instances = {}
@@ -62,13 +62,24 @@ class MQTTGateHandler:
         # Assuming the sensor data indicates a passage when it's non-zero
         if any(data):  # Check if any byte in data is non-zero
             timestamp = int(datetime.now().timestamp() * 1000)
+            # We assume the following gate configuration
+            # [gate1: robot1 passes through starting the global timer]
+            # ... both robots go on with their trajectory ...
+            # [gate2: robot1 passes through the gate and starts the delta timer]
+            # [gate3: robot2 passes through the -end- gate and ends both timers]
+
+            event_type = {
+                "gate1": "global_start",
+                "gate2": "delta_start",
+                "gate3": "global_end",
+            }.get(gate_name)
             message = {
                 "gate": gate_name,
                 "timestamp": timestamp,
-                "event": "passage_detected",
+                "event": event_type,
             }
             # Publish to MQTT topic specific to this gate
-            self.mqtt_client.publish(f"gates/{gate_name}", str(message))
+            self.mqtt_client.publish("timer", str(message))
             print(f"Published passage event for {gate_name}")
 
     async def setup_gates(self):

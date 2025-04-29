@@ -105,7 +105,7 @@ services:
     container_name: gate_handler
     privileged: true
     volumes:
-      - ./mosquitto/client:/app/src
+      - ./mosquitto/client:/app
       - /var/run/dbus:/var/run/dbus
     devices:
       - /dev/bus/usb:/dev/bus/usb

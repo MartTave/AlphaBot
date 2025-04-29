@@ -6,7 +6,7 @@ from alphabot_agent.alphabotlib.TRSensors import TRSensor
 import numpy as np
 from functools import reduce
 import logging
-
+import Pathfinding
 
 logger = logging.getLogger(__name__)
 
@@ -459,6 +459,26 @@ class AlphaBot2(object):
             GPIO.output(self.BIN1, GPIO.LOW)
             GPIO.output(self.BIN2, GPIO.HIGH)
             self.PWMB.ChangeDutyCycle(0 - left)
+
+    def runMaze(self, maze, start_r1, stop_r1, start_r2, stop_r2, angle_diff):
+        pathfinder = Pathfinding()
+        path_robo1 = pathfinder.get_path_from_maze(maze, start_r1, stop_r1)
+        path_robo2 = pathfinder.get_path_from_maze(maze, start_r2, stop_r2)
+
+        print("Robots crossing at:")
+        pathfinder.problem_detect(path_robo1, path_robo2)
+        print("to be checked later")
+
+        json_commands = pathfinder.get_json_from_maze(maze, start_r1, stop_r1, False, angle_diff)
+
+        for i in json_commands["commands"][:3]:
+            if i["command"] == "rotate":
+                rotation = float(i["args"][0])
+                self.turn(rotation)
+            elif i["command"] == "forward":
+                frwrd = float(i["args"][0])
+                self.safeForward(200 * frwrd)
+
 
 if __name__ == "__main__":
     Ab = AlphaBot2()

@@ -460,7 +460,7 @@ class AlphaBot2(object):
             GPIO.output(self.BIN2, GPIO.HIGH)
             self.PWMB.ChangeDutyCycle(0 - left)
 
-    def runMaze(self, maze, start_r1, stop_r1, start_r2, stop_r2, angle_diff):
+    def runMaze(self, maze, start_r1, stop_r1, angle_r1 = 0, start_r2 = 0, stop_r2 = 4, angle_r2 = 0, bot = 1):
         pathfinder = Pathfinding()
         path_robo1 = pathfinder.get_path_from_maze(maze, start_r1, stop_r1)
         path_robo2 = pathfinder.get_path_from_maze(maze, start_r2, stop_r2)
@@ -469,7 +469,11 @@ class AlphaBot2(object):
         pathfinder.problem_detect(path_robo1, path_robo2)
         print("to be checked later")
 
-        json_commands = pathfinder.get_json_from_maze(maze, start_r1, stop_r1, False, angle_diff)
+        json_commands = {}
+        if bot == 1:
+            json_commands = pathfinder.get_json_from_maze(maze, start_r1, stop_r1, False, angle_r1)
+        else:
+            json_commands = pathfinder.get_json_from_maze(maze, start_r2, stop_r2, False, angle_r2)
 
         for i in json_commands["commands"][:3]:
             if i["command"] == "rotate":

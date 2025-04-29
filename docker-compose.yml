@@ -103,12 +103,11 @@ services:
   gate_handler:
     build: ./mosquitto/client
     container_name: gate_handler
+    env_file: ./env/prosody.env
     privileged: true
     volumes:
       - ./mosquitto/client:/app
       - /var/run/dbus:/var/run/dbus
-    devices:
-      - /dev/bus/usb:/dev/bus/usb
     cap_add:
       - NET_ADMIN
       - SYS_ADMIN

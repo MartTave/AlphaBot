@@ -9,3 +9,4 @@ calibrations
 .env
 mosquitto/log
 mosquitto/data
+run_ble_handler.sh

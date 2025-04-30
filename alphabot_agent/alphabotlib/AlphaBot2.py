@@ -734,9 +734,6 @@ class AlphaBot2(object):
         return moy_x,moy_y,yaw_deg
 
 
-
-
-
     def runMaze(self, maze, start_r1, stop_r1, angle_r1 = 0, start_r2 = 0, stop_r2 = 4, angle_r2 = 0, bot = 1):
         pathfinder = Pathfinding()
         path_robo1 = pathfinder.get_path_from_maze(maze, start_r1, stop_r1)
@@ -755,13 +752,17 @@ class AlphaBot2(object):
         else:
             json_commands = pathfinder.get_json_from_maze(maze, start_r2, stop_r2, False, angle_r2)
 
-        for i in json_commands["commands"][:3]:
+        for idx, i in enumerate(json_commands["commands"]):
             if i["command"] == "rotate":
                 rotation = float(i["args"][0])
                 self.turn(rotation)
             elif i["command"] == "forward":
                 frwrd = float(i["args"][0])
                 self.safeForward(200 * frwrd)
+            
+            if idx != 0:
+                if i["command"] == "rotate":
+                    break
         self.stop()
 
     def runBot(self, img):

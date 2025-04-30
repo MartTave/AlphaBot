@@ -40,6 +40,7 @@ class AlphaBotAgent(Agent):
         self.api_token = os.environ.get("API_TOKEN", "your_secret_token")
         self.session = None
         self._state = None
+        self.robot = AlphaBot2()
 
     @property
     def state(self):
@@ -97,15 +98,13 @@ class AlphaBotAgent(Agent):
             },
         )
 
-        self.bot = AlphaBot2()
-
         # Add a periodic heartbeat behavior
         heartbeat_behavior = self.HeartbeatBehavior()
         self.add_behaviour(heartbeat_behavior)
 
         # Add command listener behavior
-        command_behavior = self.XMPPCommandListener()
-        self.add_behaviour(command_behavior)
+        # command_behavior = self.XMPPCommandListener()
+        # self.add_behaviour(command_behavior)
 
         waitForStartBehavior = self.waitForStartBehavior()
         self.add_behaviour(waitForStartBehavior)
@@ -151,38 +150,40 @@ class AlphaBotAgent(Agent):
                         beep_off()
                         break
 
-            waitForUpJoystick()
+            # waitForUpJoystick()
             self.agent.add_behaviour(self.agent.AskPhotoBehaviour())
             # We can start the maze resolution !
 
     class ProcessImageBehaviour(OneShotBehaviour):
-        async def __init__(self, img):
+        def __init__(self, img):
             super().__init__()
             self.img = img
 
         async def run(self):
             rotation = -3.6
-            x_pos = [152,725]
-            y_pos = [68,1824]
+            x_pos = [int(152 / 4),int(725 / 4)]
+            y_pos = [int(68 / 4),int(1824 / 4)]
 
-            grid_top = 45
-            grid_down = 475
-            grid_left = 65
-            grid_right = 1680
+            grid_top = int(45 / 4)
+            grid_down = int(475 / 4)
+            grid_left = int(65 / 4)
+            grid_right = int(1680 / 4)
             grid_width = 11
             grid_height = 3
 
             # Crop and rotate the image
-            cropped = self.agent.robot.cropImage(self.img)
+            cropped = self.agent.robot.cropImage(self.img, rotation, x_pos, y_pos)
             # This will update the labyrinth var inside the robot class
             self.agent.robot.find_labyrinth(cropped, grid_top, grid_down, grid_left, grid_right, grid_width, grid_height)
-            posx, posy, angle = self.agent.robot.where_arucos(cropped)
+            posx, posy, angle = self.agent.robot.where_arucos(cropped, 10)
 
             grid_x, grid_y = self.agent.robot.posToGrid([posx, posy], grid_top, grid_left, grid_width, grid_height)
 
             n = grid_x + grid_width * grid_y
 
-            self.agent.robot.runMaze(n, 10, angle)
+            self.agent.robot.runMaze(n, 3, angle)
+
+            self.agent.add_behaviour(self.agent.AskPhotoBehaviour())
 
 
 
@@ -194,9 +195,14 @@ class AlphaBotAgent(Agent):
             msg.set_metadata("performative", "inform")
             msg.body = "Vasy donne la photo là..."
             if last_photo is not None and time.time() - last_photo < 500:
-                time.sleep((500 - (time.time() - last_photo)) / 1000)
-            msg = await self.send(msg)
+                delay = (500 - (time.time() - last_photo))
+                logger.info("500ms not elapsed since last request, sleeping for : " + str(delay))
+                time.sleep(delay / 1000)
+            await self.send(msg)
+            msg = await self.receive(timeout=5000)
+            logger.info("Got picture !!!")
             last_photo = time.time()
+            logger.info(msg)
             if msg:
                 img_data = base64.b64decode(msg.body)
                 nparr = np.frombuffer(img_data, np.uint8)

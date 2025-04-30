@@ -152,6 +152,7 @@ class AlphaBotAgent(Agent):
                         break
 
             waitForUpJoystick()
+            self.agent.add_behaviour(self.agent.AskPhotoBehaviour())
             # We can start the maze resolution !
 
     class ProcessImageBehaviour(OneShotBehaviour):
@@ -191,6 +192,7 @@ class AlphaBotAgent(Agent):
                 img_data = base64.b64decode(msg.body)
                 nparr = np.frombuffer(img_data, np.uint8)
                 img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                self.agent.add_behaviour(self.agent.ProcessImageBehaviour(img))
             else:
                 logger.error("Could not get photo in return of camera_agent")
 
@@ -205,6 +207,9 @@ class AlphaBotAgent(Agent):
                 )
 
                 command = msg.body
+                if not command.startswith("command:"):
+                    return
+                command = command.replace("command:", "")
                 # Set state to EXECUTING and notify immediately
                 await self.agent.set_state(BotState.EXECUTING, command)
 

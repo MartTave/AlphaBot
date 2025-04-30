@@ -8,7 +8,7 @@ services:
     cap_add:
       - SYS_RAWIO
     volumes:
-      - ./alphabot_agent:/alphabot_agent
+      - ./alphabot_agent:/app/alphabot_agent
     env_file: ./env/prosody.env
     environment:
       - XMPP_USERNAME=${AGENT_NAME}
@@ -24,6 +24,18 @@ services:
     env_file: ./env/prosody.env
     environment:
       - XMPP_USERNAME=calibration_agent
+    extra_hosts:
+      - "prosody:${PROSODY_IP}"
+
+  camera_agent:
+    build: ./camera_agent/
+    container_name: camera_agent
+    volumes:
+      - ./camera_agent:/app/src
+    privileged: true
+    env_file: ./env/prosody.env
+    environment:
+      - XMPP_USERNAME=camera_agent
     extra_hosts:
       - "prosody:${PROSODY_IP}"
 

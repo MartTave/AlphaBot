@@ -2,6 +2,7 @@ import threading
 import RPi.GPIO as GPIO
 import time
 import cv2
+import os
 import Image
 from alphabot_agent.alphabotlib.TRSensors import TRSensor
 import numpy as np
@@ -9,6 +10,7 @@ from functools import reduce
 import logging
 from Pathfinding import Pathfinding
 import math
+from alphabot_agent.alphabotlib.Pathfinding import Pathfinding
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,9 @@ def flatten(li):
 class AlphaBot2(object):
     def __init__(self, ain1=12, ain2=13, ena=6, bin1=20, bin2=21, enb=26):
         self.GPIOSetup(ain1, ain2, bin1, bin2, ena, enb)
+
+
+        self.labyrinth = None
 
         self.forwardCorrection = -2
 
@@ -463,11 +468,10 @@ class AlphaBot2(object):
             self.PWMB.ChangeDutyCycle(0 - left)
 
 
-
     def cropImage(self, img, angle, x_pos, y_pos):
         """
         Apply a rotation and a crop on an image.
-        
+
         Parameters:
             img: Input image
             angle: Rotation angle in degrees
@@ -479,13 +483,13 @@ class AlphaBot2(object):
         """
         # Get image dimensions
         h, w = img.shape[:2]
-        
+
         # Calculate the center of the image
         center = (w // 2, h // 2)
-        
+
         # Create rotation matrix
         rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1)
-        
+
         # Apply the affine transformation
         rotated_zoomed = cv2.warpAffine(img, rotation_matrix, (w, h))
 
@@ -538,8 +542,8 @@ class AlphaBot2(object):
             for line in lines:
                 x1, y1, x2, y2 = line[0]
                 angle = math.atan2(y2 - y1, x2 - x1) * 180 / np.pi
-                
-                if abs(angle) < angle_thresh or abs(angle) > (180 - angle_thresh) or (90 - angle_thresh) < abs(angle) < (90 + angle_thresh): 
+
+                if abs(angle) < angle_thresh or abs(angle) > (180 - angle_thresh) or (90 - angle_thresh) < abs(angle) < (90 + angle_thresh):
                     approved_lines.append(line[0])
 
         return approved_lines
@@ -557,7 +561,7 @@ class AlphaBot2(object):
                 a = (p2y - p1y) / (p2x - p1x)
             else:
                 a = 100000
-            
+
             b = p2y - a * p2x
 
             return (a,b)
@@ -569,7 +573,7 @@ class AlphaBot2(object):
             a2, b2 = eq2
             if a1 == a2:
                 return (b1 == b2, a1, b1)
-                
+
             x = (b2 - b1) / (a1 - a2)
             y = a1 * x + b1
             return (True, x, y)
@@ -606,7 +610,7 @@ class AlphaBot2(object):
             by3, by4 = by
 
             return bx1 <= x <= bx2 and bx3 <= x <= bx4 and by1 <= y <= by2 and by3 <= y <= by4
-    
+
         # ==============================================================================================================================
         # assures points format to avoid rounding problems
         x1 = int(x1)
@@ -634,7 +638,7 @@ class AlphaBot2(object):
         n_inter += self._is_line_interrupted(forbidden_lines, x, y-0.25*sec_h, x+sec_w, y-0.25*sec_h)
         n_inter += self._is_line_interrupted(forbidden_lines, x, y+0.25*sec_h, x+sec_w, y+0.25*sec_h)
         return n_inter >= 2
-    
+
     def _check_bottom(self, forbidden_lines, x, y, sec_w, sec_h):
         n_inter = 0
         n_inter += self._is_line_interrupted(forbidden_lines, x, y, x, y+sec_h)
@@ -651,25 +655,26 @@ class AlphaBot2(object):
 
 
     def find_labyrinth(self, img, grid_top, grid_down, grid_left, grid_right, grid_width, grid_height):
-        section_width = (grid_right - grid_left) / grid_width
-        section_height = (grid_down - grid_top) / grid_height
-        lines = self._getLines(img, 1, np.pi / 360, 50, 80, 10, 10)
+        if self.labyrinth is None:
+            section_width = (grid_right - grid_left) / grid_width
+            section_height = (grid_down - grid_top) / grid_height
+            lines = self._getLines(img, 1, np.pi / 360, 50, 80, 10, 10)
 
-        section_tab = []
-        for i in range(grid_width):
-            for j in range(grid_height):
-                x = int(grid_left + (i + 0.5) * section_width)
-                y = int(grid_top + (j + 0.5) * section_height)  
+            section_tab = []
+            for i in range(grid_width):
+                for j in range(grid_height):
+                    x = int(grid_left + (i + 0.5) * section_width)
+                    y = int(grid_top + (j + 0.5) * section_height)
 
-                l = 'l' if self._check_left(lines, x, y, section_width, section_height) or i == 0 else ''
-                r = 'r' if self._check_right(lines, x, y, section_width, section_height) or i == grid_width-1 else ''
-                b = 'b' if self._check_bottom(lines, x, y, section_width, section_height) or j == grid_height-1 else ''
-                t = 't' if self._check_top(lines, x, y, section_width, section_height) or j == 0 else '' 
-		
-        section = l + r + b + t
-        section_tab.append(section)
+                    l = 'l' if self._check_left(lines, x, y, section_width, section_height) or i == 0 else ''
+                    r = 'r' if self._check_right(lines, x, y, section_width, section_height) or i == grid_width-1 else ''
+                    b = 'b' if self._check_bottom(lines, x, y, section_width, section_height) or j == grid_height-1 else ''
+                    t = 't' if self._check_top(lines, x, y, section_width, section_height) or j == 0 else ''
 
-        return np.reshape(section_tab, (grid_width, grid_height)).T
+            section = l + r + b + t
+            section_tab.append(section)
+            self.labyrinth = np.reshape(section_tab, (grid_width, grid_height)).T
+        return self.labyrinth
 
 
     
@@ -734,10 +739,20 @@ class AlphaBot2(object):
         return moy_x,moy_y,yaw_deg
 
 
+
+
+
     def runMaze(self, maze, start_r1, stop_r1, angle_r1 = 0, start_r2 = 0, stop_r2 = 4, angle_r2 = 0, bot = 1):
         pathfinder = Pathfinding()
         path_robo1 = pathfinder.get_path_from_maze(maze, start_r1, stop_r1)
         path_robo2 = pathfinder.get_path_from_maze(maze, start_r2, stop_r2)
+
+        botn = os.environ.get("XMPP_USERNAME")
+
+        if botn is None:
+            raise Exception("Could not get robot name through env variable")
+
+        n = botn.split("-")[-1]
 
         print("Robots crossing at:")
         pathfinder.problem_detect(path_robo1, path_robo2)
@@ -747,17 +762,17 @@ class AlphaBot2(object):
             pathfinder.draw_on_pic(im, path_robo1, path_robo2)
 
         json_commands = {}
-        if bot == 1:
+        if n == 1:
             json_commands = pathfinder.get_json_from_maze(maze, start_r1, stop_r1, False, angle_r1)
         else:
             json_commands = pathfinder.get_json_from_maze(maze, start_r2, stop_r2, False, angle_r2)
 
         for idx, i in enumerate(json_commands["commands"]):
             if i["command"] == "rotate":
-                rotation = float(i["args"][0])
+                rotation = int(i["args"][0])
                 self.turn(rotation)
             elif i["command"] == "forward":
-                frwrd = float(i["args"][0])
+                frwrd = int(i["args"][0])
                 self.safeForward(200 * frwrd)
             
             if idx != 0:

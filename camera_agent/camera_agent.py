@@ -132,7 +132,7 @@ class CameraAgent(agent.Agent):
             # Flush the camera buffer to get a real-time image
             for _ in range(5):  # Discard 5 frames to flush the buffer
                 camera.grab()
-                
+
             await asyncio.sleep(0.5)  # Small delay to stabilize
 
             ret, frame = camera.read()
@@ -191,13 +191,11 @@ class CameraAgent(agent.Agent):
         await self.start_http_server()
 
         self.capture = cv2.VideoCapture(0)
-        
-        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 854)
-        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-
         # Set buffer size to 1 (minimum)
         self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        
+
+        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 854)
+        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         # This is here to force the init the camera feed.
         self.capture.read()
 

@@ -754,10 +754,13 @@ class AlphaBot2(object):
         return grid_x, grid_y
 
 
-    def runMaze(self, maze, start_r1, stop_r1, angle_r1 = 0, start_r2 = 0, stop_r2 = 4, angle_r2 = 0):
+    def runMaze(self, start_r1, stop_r1, angle_r1 = 0, start_r2 = 0, stop_r2 = 4, angle_r2 = 0):
         pathfinder = Pathfinding()
-        path_robo1 = pathfinder.get_path_from_maze(maze, start_r1, stop_r1)
-        path_robo2 = pathfinder.get_path_from_maze(maze, start_r2, stop_r2)
+        if self.labyrinth is None:
+            logger.error("Can't run maze wihtout loading it first !")
+            return
+        path_robo1 = pathfinder.get_path_from_maze(self.labyrinth, start_r1, stop_r1)
+        path_robo2 = pathfinder.get_path_from_maze(self.labyrinth, start_r2, stop_r2)
 
         botn = os.environ.get("XMPP_USERNAME")
 
@@ -772,9 +775,9 @@ class AlphaBot2(object):
 
         json_commands = {}
         if n == 1:
-            json_commands = pathfinder.get_json_from_maze(maze, start_r1, stop_r1, False, angle_r1)
+            json_commands = pathfinder.get_json_from_maze(self.labyrinth, start_r1, stop_r1, False, angle_r1)
         else:
-            json_commands = pathfinder.get_json_from_maze(maze, start_r2, stop_r2, False, angle_r2)
+            json_commands = pathfinder.get_json_from_maze(self.labyrinth, start_r2, stop_r2, False, angle_r2)
 
         for i in json_commands["commands"][:3]:
             if i["command"] == "rotate":

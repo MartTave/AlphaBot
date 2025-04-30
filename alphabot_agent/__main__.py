@@ -155,14 +155,6 @@ class AlphaBotAgent(Agent):
             self.agent.add_behaviour(self.agent.AskPhotoBehaviour())
             # We can start the maze resolution !
 
-    class RunLabyrinthBehaviour(OneShotBehaviour):
-        async def __init__(self, img):
-            super().__init__()
-            self.img = img
-
-        async def run(self):
-            self.agent.robot.runMaze()
-
     class ProcessImageBehaviour(OneShotBehaviour):
         async def __init__(self, img):
             super().__init__()
@@ -184,6 +176,15 @@ class AlphaBotAgent(Agent):
             cropped = self.agent.robot.cropImage(self.img)
             # This will update the labyrinth var inside the robot class
             self.agent.robot.find_labyrinth(cropped, grid_top, grid_down, grid_left, grid_right, grid_width, grid_height)
+            posx, posy, angle = self.agent.robot.where_arucos(cropped)
+
+            grid_x, grid_y = self.agent.robot.posToGrid([posx, posy], grid_top, grid_left, grid_width, grid_height)
+
+            n = grid_x + grid_width * grid_y
+
+            self.agent.robot.runMaze(n, 10, angle)
+
+
 
     class AskPhotoBehaviour(OneShotBehaviour):
 

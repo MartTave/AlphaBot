@@ -677,7 +677,7 @@ class AlphaBot2(object):
         return self.labyrinth
 
 
-    
+
     def where_arucos(self, img, aru_id):
         # detection of all arucos
         dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
@@ -687,12 +687,12 @@ class AlphaBot2(object):
 
         # looking for asked aruco
         pos = np.where(marker_ids.flatten() == [aru_id])
-        
+
         # if no asked aruco
         if len(pos[0]) == 0:
             print(f"Didn't find the aruco {aru_id} in the picture.")
             return (-1,-1,-1)
-        
+
         # else
         # boar method to get the center (averaging the x,y coordinates of the corners)
         moy_x = 0
@@ -715,8 +715,8 @@ class AlphaBot2(object):
 
 
         # Camera matrix and distortion coefficients (a regler une fois la camera calibrée)
-        camera_matrix = np.array([[1, 0, 1], [0, 1, 1], [0, 0, 1]]) 
-        dist_coeffs = np.zeros((4, 1)) 
+        camera_matrix = np.array([[1, 0, 1], [0, 1, 1], [0, 0, 1]])
+        dist_coeffs = np.zeros((4, 1))
 
         # Solve for pose
         success, rvec, tvec = cv2.solvePnP(obj_points, marker_corners[0][0], camera_matrix, dist_coeffs)

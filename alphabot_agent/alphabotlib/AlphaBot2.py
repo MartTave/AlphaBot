@@ -739,7 +739,18 @@ class AlphaBot2(object):
         return moy_x,moy_y,yaw_deg
 
 
+    def posToGrid(pos,grid_top,grid_left,section_width,section_height):
+        grid_x = int((pos[0]-grid_left)/section_width)
+        grid_y = int((pos[1]-grid_top)/section_height)
+        return grid_x, grid_y
 
+
+    def posToSubGrid(pos,grid_top,grid_left,section_width,section_height):
+        section_width = int(section_width/2)
+        section_height = int(section_height/2)
+        grid_x = int((pos[0]-grid_left)/section_width)
+        grid_y = int((pos[1]-grid_top)/section_height)
+        return grid_x, grid_y
 
 
     def runMaze(self, maze, start_r1, stop_r1, angle_r1 = 0, start_r2 = 0, stop_r2 = 4, angle_r2 = 0, bot = 1):

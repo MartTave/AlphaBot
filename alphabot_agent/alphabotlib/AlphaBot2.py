@@ -2,11 +2,12 @@ import threading
 import RPi.GPIO as GPIO
 import time
 import cv2
+import Image
 from alphabot_agent.alphabotlib.TRSensors import TRSensor
 import numpy as np
 from functools import reduce
 import logging
-import Pathfinding
+from Pathfinding import Pathfinding
 import math
 
 logger = logging.getLogger(__name__)
@@ -670,9 +671,6 @@ class AlphaBot2(object):
 
         return np.reshape(section_tab, (grid_width, grid_height)).T
 
-
-
-
     def runMaze(self, maze, start_r1, stop_r1, angle_r1 = 0, start_r2 = 0, stop_r2 = 4, angle_r2 = 0, bot = 1):
         pathfinder = Pathfinding()
         path_robo1 = pathfinder.get_path_from_maze(maze, start_r1, stop_r1)
@@ -680,7 +678,10 @@ class AlphaBot2(object):
 
         print("Robots crossing at:")
         pathfinder.problem_detect(path_robo1, path_robo2)
-        print("to be checked later")
+        print("to be handled later")
+
+        with Image.open("cropped.jpg") as im:
+            pathfinder.draw_on_pic(im, path_robo1, path_robo2)
 
         json_commands = {}
         if bot == 1:
@@ -695,6 +696,27 @@ class AlphaBot2(object):
             elif i["command"] == "forward":
                 frwrd = float(i["args"][0])
                 self.safeForward(200 * frwrd)
+        self.stop()
+
+    def runBot(self, img):
+        rotation = -3.6
+        x_pos = [152,725]
+        y_pos = [68,1824]
+        img = self.cropImage(img, rotation, x_pos, y_pos)
+        cv2.imwrite("cropped.jpg", img)
+
+        # grid parameters for temporary camera
+        grid_top = 45
+        grid_down = 475
+        grid_left = 65
+        grid_right = 1680
+        grid_width = 11
+        grid_height = 3
+        
+        # finding the labyrinth
+        tab = self.find_labyrinth(img,grid_top,grid_down,grid_left,grid_right,grid_width,grid_height)
+
+
 
 
 if __name__ == "__main__":

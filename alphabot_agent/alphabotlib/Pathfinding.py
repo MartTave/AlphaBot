@@ -60,25 +60,27 @@ class Pathfinding:
         self.__arr2graph(maze)
         return self.__find_path(stop, [self.nodes[start]])
     
-    def draw_on_pic(self, path):
+    def draw_on_pic(self, im, path, path2 = []):
         board_size = (11,3)
-        top_left = (140,35)
-        bottom_right = (990,265)
+        top_left = (65,45)
+        bottom_right = (1680,475)
 
-        with Image.open("in.png") as im:
+        draw = ImageDraw.Draw(im)
 
-            draw = ImageDraw.Draw(im)
+        size = bottom_right[0] - top_left[0], bottom_right[1] - top_left[1]
 
-            size = bottom_right[0] - top_left[0], bottom_right[1] - top_left[1]
+        square_size = size[0] / board_size[0], size[1] / board_size[1]
 
-            square_size = size[0] / board_size[0], size[1] / board_size[1]
-
-            for i in range(len(path[:-1])):
-                start = path[i]%board_size[0] * square_size[0] + top_left[0] + square_size[0]/2, int(path[i]/board_size[0]) * square_size[1] + top_left[1] + square_size[1]/2
-                stop = path[i+1]%board_size[0] * square_size[0] + top_left[0] + square_size[0]/2, int(path[i+1]/board_size[0]) * square_size[1] + top_left[1] + square_size[1]/2
-                draw.line(start + stop, fill=(0,0,200), width=8)
-
-
+        for i in range(len(path[:-1])):
+            start = path[i]%board_size[0] * square_size[0] + top_left[0] + square_size[0]/2, int(path[i]/board_size[0]) * square_size[1] + top_left[1] + square_size[1]/2
+            stop = path[i+1]%board_size[0] * square_size[0] + top_left[0] + square_size[0]/2, int(path[i+1]/board_size[0]) * square_size[1] + top_left[1] + square_size[1]/2
+            draw.line(start + stop, fill=(0,0,200), width=8)
+        
+        if len(path2) != 0:
+            for i in range(len(path2[:-1])):
+                start = path2[i]%board_size[0] * square_size[0] + top_left[0] + square_size[0]/2, int(path2[i]/board_size[0]) * square_size[1] + top_left[1] + square_size[1]/2
+                stop = path2[i+1]%board_size[0] * square_size[0] + top_left[0] + square_size[0]/2, int(path2[i+1]/board_size[0]) * square_size[1] + top_left[1] + square_size[1]/2
+                draw.line(start + stop, fill=(200,0,0), width=8)
             
             im.save("out.png")
     

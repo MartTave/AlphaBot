@@ -187,6 +187,9 @@ class CameraAgent(agent.Agent):
         await self.start_http_server()
 
         self.capture = cv2.VideoCapture(0)
+        
+        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 854)
+        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
         # This is here to force the init the camera feed.
         self.capture.read()

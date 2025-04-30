@@ -45,3 +45,7 @@ ssl = {
 -- Define virtual host
 VirtualHost "prosody"
 authentication = "internal_plain"
+
+-- Custom Prosody config
+
+-- Increase max stanza size

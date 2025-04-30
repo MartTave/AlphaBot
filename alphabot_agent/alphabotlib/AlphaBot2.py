@@ -26,6 +26,9 @@ class AlphaBot2(object):
     def __init__(self, ain1=12, ain2=13, ena=6, bin1=20, bin2=21, enb=26):
         self.GPIOSetup(ain1, ain2, bin1, bin2, ena, enb)
 
+
+        self.labyrinth = None
+
         self.forwardCorrection = -2
 
         self.turn_speed = 15
@@ -651,25 +654,26 @@ class AlphaBot2(object):
 
 
     def find_labyrinth(self, img, grid_top, grid_down, grid_left, grid_right, grid_width, grid_height):
-        section_width = (grid_right - grid_left) / grid_width
-        section_height = (grid_down - grid_top) / grid_height
-        lines = self._getLines(img, 1, np.pi / 360, 50, 80, 10, 10)
+        if self.labyrinth is None:
+            section_width = (grid_right - grid_left) / grid_width
+            section_height = (grid_down - grid_top) / grid_height
+            lines = self._getLines(img, 1, np.pi / 360, 50, 80, 10, 10)
 
-        section_tab = []
-        for i in range(grid_width):
-            for j in range(grid_height):
-                x = int(grid_left + (i + 0.5) * section_width)
-                y = int(grid_top + (j + 0.5) * section_height)
+            section_tab = []
+            for i in range(grid_width):
+                for j in range(grid_height):
+                    x = int(grid_left + (i + 0.5) * section_width)
+                    y = int(grid_top + (j + 0.5) * section_height)
 
-                l = 'l' if self._check_left(lines, x, y, section_width, section_height) or i == 0 else ''
-                r = 'r' if self._check_right(lines, x, y, section_width, section_height) or i == grid_width-1 else ''
-                b = 'b' if self._check_bottom(lines, x, y, section_width, section_height) or j == grid_height-1 else ''
-                t = 't' if self._check_top(lines, x, y, section_width, section_height) or j == 0 else ''
+                    l = 'l' if self._check_left(lines, x, y, section_width, section_height) or i == 0 else ''
+                    r = 'r' if self._check_right(lines, x, y, section_width, section_height) or i == grid_width-1 else ''
+                    b = 'b' if self._check_bottom(lines, x, y, section_width, section_height) or j == grid_height-1 else ''
+                    t = 't' if self._check_top(lines, x, y, section_width, section_height) or j == 0 else ''
 
-        section = l + r + b + t
-        section_tab.append(section)
-
-        return np.reshape(section_tab, (grid_width, grid_height)).T
+            section = l + r + b + t
+            section_tab.append(section)
+            self.labyrinth = np.reshape(section_tab, (grid_width, grid_height)).T
+        return self.labyrinth
 
 
     

@@ -97,6 +97,8 @@ class AlphaBotAgent(Agent):
             },
         )
 
+        self.bot = AlphaBot2()
+
         # Add a periodic heartbeat behavior
         heartbeat_behavior = self.HeartbeatBehavior()
         self.add_behaviour(heartbeat_behavior)
@@ -158,7 +160,21 @@ class AlphaBotAgent(Agent):
             self.img = img
 
         async def run(self):
+            rotation = -3.6
+            x_pos = [152,725]
+            y_pos = [68,1824]
 
+            grid_top = 45
+            grid_down = 475
+            grid_left = 65
+            grid_right = 1680
+            grid_width = 11
+            grid_height = 3
+
+            # Crop and rotate the image
+            cropped = self.agent.robot.cropImage(self.img)
+            # This will update the labyrinth var inside the robot class
+            self.agent.robot.find_labyrinth(cropped, grid_top, grid_down, grid_left, grid_right, grid_width, grid_height)
 
     class AskPhotoBehaviour(OneShotBehaviour):
 
@@ -180,9 +196,6 @@ class AlphaBotAgent(Agent):
 
 
     class XMPPCommandListener(CyclicBehaviour):
-        async def on_start(self):
-            self.ab = AlphaBot2()
-            # Initial state is already set in setup()
 
         async def run(self):
             msg = await self.receive(timeout=100)
@@ -218,28 +231,28 @@ class AlphaBotAgent(Agent):
                 logger.info(
                     f"[Behavior] Moving forward safely for {distance} mm"
                 )
-                self.ab.safeForward(mm=distance)
+                self.agent.bot.safeForward(mm=distance)
 
             elif command == "turn":
                 angle = args[0]
                 angle = int(angle)
                 logger.info("[Behavior] Turning...")
-                self.ab.turn(angle=angle)
+                self.agent.bot.turn(angle=angle)
             elif command == "full_calibration":
                 logger.info("Starting full calibration")
-                self.ab.fullCalibration()
+                self.agent.bot.fullCalibration()
             elif command == "calibrate_turn":
                 logger.info("Calibrating turn...")
-                self.ab.calibrateTurn()
+                self.agent.bot.calibrateTurn()
             elif command == "calibrate_sensors":
                 logger.info("[Behavior] Calibrating sensors...")
-                self.ab.calibrateTRSensors()
+                self.agent.bot.calibrateTRSensors()
             elif command == "calibrate_forward":
                 logger.info("[Behavior] Calibrating forward...")
-                self.ab.calibrateForward()
+                self.agent.bot.calibrateForward()
             elif command == "calibrate_forward_correction":
                 logger.info("Calibrating forward correction")
-                self.ab.calibrateForwardCorrection()
+                self.agent.bot.calibrateForwardCorrection()
 
             elif command.startswith("motor "):
                 try:
@@ -249,9 +262,9 @@ class AlphaBotAgent(Agent):
                     logger.info(
                         f"[Behavior] Setting motor speeds to {left_speed} (left) and {right_speed} (right)..."
                     )
-                    self.ab.setMotor(left_speed, right_speed)
+                    self.agent.bot.setMotor(left_speed, right_speed)
                     await asyncio.sleep(2)
-                    self.ab.stop()
+                    self.agent.bot.stop()
                 except (ValueError, IndexError):
                     logger.error(
                         "[Behavior] Invalid motor command format. Use 'motor <left_speed> <right_speed>'"
@@ -259,7 +272,7 @@ class AlphaBotAgent(Agent):
 
             elif command == "stop":
                 logger.info("[Behavior] Stopping...")
-                self.ab.stop()
+                self.agent.bot.stop()
 
             else:
                 logger.warning(f"[Behavior] Unknown command: {command}")
@@ -294,6 +307,5 @@ async def main():
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-        asyncio.run(waitForStart())
     except Exception as e:
         logger.critical(f"Critical error in main loop: {str(e)}", exc_info=True)

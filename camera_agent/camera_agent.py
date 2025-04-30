@@ -129,7 +129,11 @@ class CameraAgent(agent.Agent):
             print("Capturing image...")
             camera = self.agent.capture
 
-            await asyncio.sleep(2)
+            # Flush the camera buffer to get a real-time image
+            for _ in range(5):  # Discard 5 frames to flush the buffer
+                camera.grab()
+                
+            await asyncio.sleep(0.5)  # Small delay to stabilize
 
             ret, frame = camera.read()
 
@@ -191,6 +195,9 @@ class CameraAgent(agent.Agent):
         self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 854)
         self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
+        # Set buffer size to 1 (minimum)
+        self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        
         # This is here to force the init the camera feed.
         self.capture.read()
 

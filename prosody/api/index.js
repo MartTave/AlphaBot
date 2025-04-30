@@ -160,6 +160,96 @@ const server = serve({
       );
     }
 
+    if (url.pathname === "/api/maze/plan" && req.method === "POST") {
+      const authHeader = req.headers.get("authorization");
+      const token = authHeader?.split(" ")[1];
+
+      if (!token || token !== "your_secret_token") {
+        return new Response("Unauthorized", {
+          status: 401,
+          headers: corsHeaders,
+        });
+      }
+
+      return req.json().then(async (data) => {
+        try {
+          // Check if image exists in the data and is a valid base64 string
+          if (!data.image) {
+            return addCorsHeaders(
+              new Response(
+                JSON.stringify({
+                  error: "Missing image data",
+                }),
+                {
+                  status: 400,
+                  headers: { "Content-Type": "application/json" },
+                },
+              ),
+            );
+          }
+
+          // Try to validate base64 format
+          try {
+            // Check if it's a valid base64 string
+            const base64Regex = /^[A-Za-z0-9+/=]+$/;
+            if (!base64Regex.test(data.image)) {
+              throw new Error("Invalid base64 format");
+            }
+            // Attempt to decode to further validate
+            atob(data.image);
+          } catch (base64Error) {
+            return addCorsHeaders(
+              new Response(
+                JSON.stringify({
+                  error: "Invalid base64 image data",
+                  details: base64Error.message,
+                }),
+                {
+                  status: 400,
+                  headers: { "Content-Type": "application/json" },
+                },
+              ),
+            );
+          }
+
+          // If we reach here, the image is valid base64
+          // Add type field and broadcast to clients
+          const message = {
+            ...data,
+            type: "maze_plan",
+          };
+          clients.forEach((client) => {
+            client.send(JSON.stringify(message));
+          });
+
+          return addCorsHeaders(
+            new Response(JSON.stringify({ status: "ok" }), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            }),
+          );
+        } catch (error) {
+          console.error("Error details:", {
+            message: error.message,
+            cause: error.cause,
+            stack: error.stack,
+          });
+          return addCorsHeaders(
+            new Response(
+              JSON.stringify({
+                error: "Error",
+                details: error.message,
+              }),
+              {
+                status: 500,
+                headers: { "Content-Type": "application/json" },
+              },
+            ),
+          );
+        }
+      });
+    }
+
     // Ban agent endpoint
     if (url.pathname === "/api/ban" && req.method === "POST") {
       const authHeader = req.headers.get("authorization");

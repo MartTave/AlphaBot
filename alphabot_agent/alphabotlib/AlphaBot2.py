@@ -1,6 +1,8 @@
 import threading
 import RPi.GPIO as GPIO
 import time
+
+from numpy._core.shape_base import block
 import cv2
 import os
 from alphabot_agent.alphabotlib.TRSensors import TRSensor
@@ -369,7 +371,7 @@ class AlphaBot2(object):
 
         pass
 
-    def safeForward(self, mm=100):
+    def safeForward(self, mm=100, blocking=False):
         if self.forwardEquation:
             duration = self.forwardEquation(mm - self.forward_braking_time) / 1000
         else:
@@ -386,7 +388,6 @@ class AlphaBot2(object):
         GPIO.output(self.BIN1, GPIO.LOW)
         GPIO.output(self.BIN2, GPIO.HIGH)
 
-
         def run_for_time(duration):
             start_time = time.time()
             while time.time() - start_time < duration:
@@ -398,6 +399,8 @@ class AlphaBot2(object):
 
         thread = threading.Thread(target=run_for_time, args=(duration,))
         thread.start()
+        if blocking:
+            thread.join()
 
     def forward(self):
         self.PWMA.ChangeDutyCycle(self.PA)
@@ -779,7 +782,7 @@ class AlphaBot2(object):
                 self.turn(rotation)
             elif i["command"] == "forward":
                 frwrd = int(i["args"][0])
-                self.safeForward(200 * frwrd)
+                self.safeForward(200 * frwrd, blocking=True)
 
 
 if __name__ == "__main__":

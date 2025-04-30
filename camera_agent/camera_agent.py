@@ -187,6 +187,10 @@ class CameraAgent(agent.Agent):
         await self.start_http_server()
 
         self.capture = cv2.VideoCapture(0)
+
+        # This is here to force the init the camera feed.
+        self.capture.read()
+
         # Keep the XMPP behaviors for photo requests
         self.add_behaviour(self.WaitForRequestBehaviour())
 

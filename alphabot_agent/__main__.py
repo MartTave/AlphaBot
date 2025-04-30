@@ -155,6 +155,14 @@ class AlphaBotAgent(Agent):
             self.agent.add_behaviour(self.agent.AskPhotoBehaviour())
             # We can start the maze resolution !
 
+    class RunLabyrinthBehaviour(OneShotBehaviour):
+        async def __init__(self, img):
+            super().__init__()
+            self.img = img
+
+        async def run(self):
+            self.agent.robot.runMaze()
+
     class ProcessImageBehaviour(OneShotBehaviour):
         async def __init__(self, img):
             super().__init__()

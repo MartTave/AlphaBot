@@ -671,6 +671,69 @@ class AlphaBot2(object):
         return np.reshape(section_tab, (grid_width, grid_height)).T
 
 
+    
+    def where_arucos(self, img, aru_id):
+        # detection of all arucos
+        dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+        detectorParams = cv2.aruco.DetectorParameters()
+        detector = cv2.aruco.ArucoDetector(dictionary, detectorParams)
+        marker_corners, marker_ids, rejected_candidates = detector.detectMarkers(img)
+
+        # looking for asked aruco
+        pos = np.where(marker_ids.flatten() == [aru_id])
+        
+        # if no asked aruco
+        if len(pos[0]) == 0:
+            print(f"Didn't find the aruco {aru_id} in the picture.")
+            return (-1,-1,-1)
+        
+        # else
+        # boar method to get the center (averaging the x,y coordinates of the corners)
+        moy_x = 0
+        moy_y = 0
+        for i in marker_corners[pos[0][0]][0]:
+            moy_x += i[0]
+            moy_y += i[1]
+
+        moy_x /= 4
+        moy_y /= 4
+
+        # placing the points
+        marker_length = 1.0
+        obj_points = np.array([
+            [-marker_length/2,  marker_length/2, 0],  # Top-left
+            [ marker_length/2,  marker_length/2, 0],  # Top-right
+            [ marker_length/2, -marker_length/2, 0],  # Bottom-right
+            [-marker_length/2, -marker_length/2, 0]   # Bottom-left
+        ], dtype=np.float32)
+
+
+        # Camera matrix and distortion coefficients (a regler une fois la camera calibrée)
+        camera_matrix = np.array([[1, 0, 1], [0, 1, 1], [0, 0, 1]]) 
+        dist_coeffs = np.zeros((4, 1)) 
+
+        # Solve for pose
+        success, rvec, tvec = cv2.solvePnP(obj_points, marker_corners[0][0], camera_matrix, dist_coeffs)
+
+        # Convert rotation vector to rotation matrix
+        rotation_matrix, _ = cv2.Rodrigues(rvec)
+
+        # Extract Euler angles (ZYX convention)
+        sy = np.sqrt(rotation_matrix[0,0] * rotation_matrix[0,0] + rotation_matrix[1,0] * rotation_matrix[1,0])
+        singular = sy < 1e-6
+
+        if not singular:
+            yaw = np.arctan2(rotation_matrix[1,0], rotation_matrix[0,0])
+        else:
+            yaw = np.arctan2(-rotation_matrix[0,1], rotation_matrix[1,1])
+
+        yaw_deg = np.degrees(yaw)
+
+
+        return moy_x,moy_y,yaw_deg
+
+
+
 
 
     def runMaze(self, maze, start_r1, stop_r1, angle_r1 = 0, start_r2 = 0, stop_r2 = 4, angle_r2 = 0, bot = 1):

@@ -1,17 +1,16 @@
-FROM ghcr.io/astral-sh/uv:alpine
-
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 WORKDIR /app
 
-RUN apk update && apk upgrade
+RUN apt-get update
 
-RUN apk add --no-cache \
-    musl-dev \
-    clang \
-    build-base \
-    mesa-gl \
-    glib \
-    python3-dev \
-    libffi-dev
+RUN apt-get install -y --no-install-recommends \
+    build-essential \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxrender1 \
+    libxext6 \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY ./*.py ./src/
 COPY ./*.toml ./src/

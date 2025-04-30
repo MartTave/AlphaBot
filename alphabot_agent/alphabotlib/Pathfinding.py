@@ -21,7 +21,7 @@ class Pathfinding:
     # letters define if there are walls (t = top, b = bottom, l = left, r = right)
     def __init__(self):
         pass
-        
+
     def __arr2graph(self, maze:list[list[str]]) -> None:
         row = len(maze)
         col = len(maze[1])
@@ -40,26 +40,26 @@ class Pathfinding:
                     conn.append((i + 1) * col + j)
                 nodes.append(Node(i*col+j, conn))
         self.nodes = nodes
-    
+
 
     # BFS recursive function for path finding
     def __find_path(self, stop: int, n: list[Node], step: int = 0) -> list[int]:
         for i in n:
             if i.id == stop:
                 return i.path + [i.id]
-        
+
         new_n: list[Node] = []
         for i in n:
             for j in i.conn:
                 if i.id != j and j not in i.path:
-                
-                    new_n.append(Node(j, self.nodes[j].conn, i.path + [i.id])) 
+
+                    new_n.append(Node(j, self.nodes[j].conn, i.path + [i.id]))
         return self.__find_path(stop, new_n, step + 1)
 
     def get_path_from_maze(self, maze: list[list[str]], start: int, stop: int) -> list[int]:
         self.__arr2graph(maze)
         return self.__find_path(stop, [self.nodes[start]])
-    
+
     def draw_on_pic(self, path):
         board_size = (11,3)
         top_left = (140,35)
@@ -79,9 +79,9 @@ class Pathfinding:
                 draw.line(start + stop, fill=(0,0,200), width=8)
 
 
-            
+
             im.save("out.png")
-    
+
     def draw_maze(self, maze: list[list[str]], path: list[int] = None, path2:list[int] = None):
         rows = len(maze)
         cols = len(maze[0]) if rows > 0 else 0
@@ -156,14 +156,14 @@ class Pathfinding:
         prev = ""
         orientation = ""
         inst = []
-        for idx, i in enumerate(path[:-1]): 
+        for idx, i in enumerate(path[:-1]):
             if path[idx + 1] == i + 1:
                 orientation = "r"
             elif path[idx + 1] == i - 1:
                 orientation = "l"
             elif path[idx + 1] == i - 11:
                 orientation = "u"
-            elif path[idx + 1] == i + 11: 
+            elif path[idx + 1] == i + 11:
                 orientation = "d"
             else:
                 print("uh oh")
@@ -182,7 +182,7 @@ class Pathfinding:
                         inst.append("rotate:180")
                     elif prev + orientation in ["rd", "dl", "lu", "ur"]:
                         inst.append("rotate:90")
-                    elif prev + orientation in ["dr", "ld", "ul", "ru"]: 
+                    elif prev + orientation in ["dr", "ld", "ul", "ru"]:
                         inst.append("rotate:-90")
 
                     inst.append("forward:1")
@@ -196,9 +196,9 @@ class Pathfinding:
         if save:
             with open("out.json", "w") as f:
                 json.dump(out, f)
-        
+
         return out
-    
+
     def divide_path(self, path: list[int], base_maze: list[list[str]]) -> None:
         new_maze = []
         for i in path:
@@ -258,5 +258,5 @@ class Pathfinding:
                     elif "r" in base_maze[i + spot_y][j+spot_x] or (i + spot_y)*11 + j + spot_x + 1 not in [q.id for q in new_maze]:
                         maze2[i*2][j*2+1] += "r"
                         maze2[i*2+1][j*2+1] += "r"
-                                
+
         return maze2

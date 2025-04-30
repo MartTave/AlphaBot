@@ -161,25 +161,45 @@ class AlphaBotAgent(Agent):
 
         async def run(self):
             rotation = -3.6
-            x_pos = [int(152 / 4),int(725 / 4)]
-            y_pos = [int(68 / 4),int(1824 / 4)]
+            x_pos = [int(152 / 2.25),int(725 / 2.25)]
+            y_pos = [int(68 / 2.25),int(1824 / 2.25)]
 
-            grid_top = int(45 / 4)
-            grid_down = int(475 / 4)
-            grid_left = int(65 / 4)
-            grid_right = int(1680 / 4)
+            grid_top = int(45 / 2.25)
+            grid_down = int(475 / 2.25)
+            grid_left = int(65 / 2.25)
+            grid_right = int(1680 / 2.25)
+
+
             grid_width = 11
             grid_height = 3
 
             # Crop and rotate the image
             cropped = self.agent.robot.cropImage(self.img, rotation, x_pos, y_pos)
+
+            cv2.circle(cropped, (grid_left, grid_top), 3, [255, 0, 0])
+            cv2.circle(cropped, (grid_right, grid_down), 3, [255, 0, 0])
+
+
+            cv2.imwrite("./alphabot_agent/frame.png", cropped)
+
             # This will update the labyrinth var inside the robot class
             self.agent.robot.find_labyrinth(cropped, grid_top, grid_down, grid_left, grid_right, grid_width, grid_height)
-            posx, posy, angle = self.agent.robot.where_arucos(cropped, 10)
+            posx, posy, angle = self.agent.robot.where_arucos(cropped, 12)
 
-            grid_x, grid_y = self.agent.robot.posToGrid([posx, posy], grid_top, grid_left, grid_width, grid_height)
+            logger.info(f"Arcuo pos : {posx} : {posy}")
+
+            cell_width = (grid_right - grid_left) / grid_width
+            cell_height = (grid_down - grid_top) / grid_height
+
+            grid_x, grid_y = self.agent.robot.posToGrid([posx, posy], grid_top, grid_left, cell_width, cell_height)
 
             n = grid_x + grid_width * grid_y
+
+            logger.info(f"Alors, {grid_x} et {grid_width} et {grid_y}")
+
+            logger.info("Start is : " + str(n))
+
+            logger.info(f"Angle is : {angle}")
 
             self.agent.robot.runMaze(n, 3, angle)
 

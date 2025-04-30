@@ -1,3 +1,4 @@
+import json
 import threading
 import RPi.GPIO as GPIO
 import time
@@ -671,9 +672,9 @@ class AlphaBot2(object):
                     r = 'r' if self._check_right(lines, x, y, section_width, section_height) or i == grid_width-1 else ''
                     b = 'b' if self._check_bottom(lines, x, y, section_width, section_height) or j == grid_height-1 else ''
                     t = 't' if self._check_top(lines, x, y, section_width, section_height) or j == 0 else ''
-
-            section = l + r + b + t
-            section_tab.append(section)
+                    section = l + r + b + t
+                    section_tab.append(section)
+            logger.info(section_tab)
             self.labyrinth = np.reshape(section_tab, (grid_width, grid_height)).T
         return self.labyrinth
 
@@ -740,13 +741,13 @@ class AlphaBot2(object):
         return moy_x,moy_y,yaw_deg
 
 
-    def posToGrid(pos,grid_top,grid_left,section_width,section_height):
+    def posToGrid(self, pos,grid_top,grid_left,section_width,section_height):
         grid_x = int((pos[0]-grid_left)/section_width)
         grid_y = int((pos[1]-grid_top)/section_height)
         return grid_x, grid_y
 
 
-    def posToSubGrid(pos,grid_top,grid_left,section_width,section_height):
+    def posToSubGrid(self, pos,grid_top,grid_left,section_width,section_height):
         section_width = int(section_width/2)
         section_height = int(section_height/2)
         grid_x = int((pos[0]-grid_left)/section_width)
@@ -778,6 +779,8 @@ class AlphaBot2(object):
             json_commands = pathfinder.get_json_from_maze(self.labyrinth, start_r1, stop_r1, False, angle_r1)
         else:
             json_commands = pathfinder.get_json_from_maze(self.labyrinth, start_r2, stop_r2, False, angle_r2)
+
+        print(f"Json commands : {json_commands}")
 
         for i in json_commands["commands"][:3]:
             if i["command"] == "rotate":

@@ -7,8 +7,6 @@ USER="raspi"
 
 # IP address of the Prosody server
 
-# Local agent folder path
-LOCAL_AGENT_PATH="./agent"
 # Remote path where to copy the agent folder
 REMOTE_PATH="/home/raspi/app"
 
@@ -37,7 +35,7 @@ else
 fi
 
 # Copy changes into the remote server
-rsync -avz --progress --exclude '.venv' --exclude '__pycache__' --exclude 'received_photos' --exclude 'node_modules' --exclude '.git' ./ ${USER}@${HOST}:${REMOTE_PATH}
+rsync -avz --progress --exclude 'mosquitto' --exclude '.venv' --exclude '__pycache__' --exclude 'received_photos' --exclude 'node_modules' --exclude '.git' ./ ${USER}@${HOST}:${REMOTE_PATH}
 
 # Then connect and restart docker compose
 echo "Starting the stack in attached mode..."

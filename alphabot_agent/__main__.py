@@ -1,11 +1,16 @@
 import asyncio
 import logging
 import os
+import time
+import RPi.GPIO as GPIO
+import base64
+import numpy as np
+import cv2
 from enum import Enum
 
 import aiohttp
 from spade.agent import Agent
-from spade.behaviour import CyclicBehaviour
+from spade.behaviour import CyclicBehaviour, OneShotBehaviour
 from spade.message import Message
 
 from alphabot_agent.alphabotlib.AlphaBot2 import AlphaBot2
@@ -13,6 +18,8 @@ from alphabot_agent.alphabotlib.AlphaBot2 import AlphaBot2
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("AlphaBotAgent")
+
+last_photo = None
 
 # Enable SPADE and XMPP specific logging
 for log_name in ["spade", "aioxmpp", "xmpp"]:
@@ -98,6 +105,9 @@ class AlphaBotAgent(Agent):
         command_behavior = self.XMPPCommandListener()
         self.add_behaviour(command_behavior)
 
+        waitForStartBehavior = self.waitForStartBehavior()
+        self.add_behaviour(waitForStartBehavior)
+
         # Set initial state after setup
         await self.set_state(BotState.IDLE, "")
 
@@ -109,6 +119,65 @@ class AlphaBotAgent(Agent):
                     ""
                 )  # Send current state as heartbeat
             await asyncio.sleep(30)
+
+    class waitForStartBehavior(OneShotBehaviour):
+        async def run(self):
+
+            def waitForUpJoystick():
+                UP = 8
+                BUZ = 4
+                GPIO.setmode(GPIO.BCM)
+                GPIO.setwarnings(False)
+                GPIO.setup(UP, GPIO.IN, GPIO.PUD_UP)
+                GPIO.setup(BUZ, GPIO.OUT)
+
+
+                def beep_on():
+                    GPIO.output(BUZ, GPIO.HIGH)
+                    pass
+
+                def beep_off():
+                    GPIO.output(BUZ, GPIO.LOW)
+                    pass
+
+                while True:
+                    time.sleep(0.05)
+                    if GPIO.input(UP) == 0:
+                        beep_on()
+                        while GPIO.input(UP) == 0:
+                            time.sleep(0.05)
+                        beep_off()
+                        break
+
+            waitForUpJoystick()
+            # We can start the maze resolution !
+
+    class ProcessImageBehaviour(OneShotBehaviour):
+        async def __init__(self, img):
+            super().__init__()
+            self.img = img
+
+        async def run(self):
+
+
+    class AskPhotoBehaviour(OneShotBehaviour):
+
+        async def run(self):
+            global last_photo
+            msg = Message(to="camera_agent@prosody")
+            msg.set_metadata("performative", "inform")
+            msg.body = "Vasy donne la photo là..."
+            if last_photo is not None and time.time() - last_photo < 500:
+                time.sleep((500 - (time.time() - last_photo)) / 1000)
+            msg = await self.send(msg)
+            last_photo = time.time()
+            if msg:
+                img_data = base64.b64decode(msg.body)
+                nparr = np.frombuffer(img_data, np.uint8)
+                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            else:
+                logger.error("Could not get photo in return of camera_agent")
+
 
     class XMPPCommandListener(CyclicBehaviour):
         async def on_start(self):
@@ -222,9 +291,9 @@ async def main():
     except Exception as e:
         logger.error(f"Error starting agent: {str(e)}", exc_info=True)
 
-
 if __name__ == "__main__":
     try:
         asyncio.run(main())
+        asyncio.run(waitForStart())
     except Exception as e:
         logger.critical(f"Critical error in main loop: {str(e)}", exc_info=True)

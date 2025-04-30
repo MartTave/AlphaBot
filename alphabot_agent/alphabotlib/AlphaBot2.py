@@ -2,11 +2,13 @@ import threading
 import RPi.GPIO as GPIO
 import time
 import cv2
+import os
 from alphabot_agent.alphabotlib.TRSensors import TRSensor
 import numpy as np
 from functools import reduce
 import logging
-
+import math
+from alphabot_agent.alphabotlib.Pathfinding import Pathfinding
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +24,9 @@ def flatten(li):
 class AlphaBot2(object):
     def __init__(self, ain1=12, ain2=13, ena=6, bin1=20, bin2=21, enb=26):
         self.GPIOSetup(ain1, ain2, bin1, bin2, ena, enb)
+
+
+        self.labyrinth = None
 
         self.forwardCorrection = -2
 
@@ -459,6 +464,312 @@ class AlphaBot2(object):
             GPIO.output(self.BIN1, GPIO.LOW)
             GPIO.output(self.BIN2, GPIO.HIGH)
             self.PWMB.ChangeDutyCycle(0 - left)
+
+
+    def cropImage(self, img, angle, x_pos, y_pos):
+        """
+        Apply a rotation and a crop on an image.
+
+        Parameters:
+            img: Input image
+            angle: Rotation angle in degrees
+            x_pos: x limits for the crop [min, max]
+            y_pos: y limits for the crop [min, max]
+
+        Returns:
+            Rotated and cropped version of the input image
+        """
+        # Get image dimensions
+        h, w = img.shape[:2]
+
+        # Calculate the center of the image
+        center = (w // 2, h // 2)
+
+        # Create rotation matrix
+        rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1)
+
+        # Apply the affine transformation
+        rotated_zoomed = cv2.warpAffine(img, rotation_matrix, (w, h))
+
+        # returns the cropped rotated image
+        x_min, x_max = x_pos
+        y_min, y_max = y_pos
+        return(rotated_zoomed[x_min:x_max, y_min:y_max])
+
+        ##### test
+        # parameters for the temporary camera
+        # rotation = -3.6
+        # x_pos = [152,725]
+        # y_pos = [68,1824]
+        # img = cv2.imread('./pic0.jpg')
+
+        # using the function and showing result
+        # img = cropImage(img=img, angle=rotation, x_pos=x_pos, y_pos=y_pos)
+        # cv2.imshow('Zoomed and Rotated', img)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
+        #####
+
+    def _getLines(self, img, rho, theta, threshold, min_line_length, max_line_gap, angle_thresh):
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+        lower = np.array([93, 68, 99])
+        upper = np.array([179, 255,255])
+        mask = cv2.inRange(hsv, lower, upper)
+
+        ## Slice the red
+        red = cv2.bitwise_and(img, img, mask=mask)
+
+        # Convert the masked red image to grayscale first
+        red_gray = cv2.cvtColor(red, cv2.COLOR_BGR2GRAY)
+
+        # Threshold it to get cleaner lines
+        _, red_binary = cv2.threshold(red_gray, 1, 255, cv2.THRESH_BINARY)
+
+        # Hough transform on the purified edges
+        lines = cv2.HoughLinesP(
+            red_binary, rho, theta, threshold, np.array([]),
+            min_line_length, max_line_gap
+        )
+
+        # Draw detected lines (in blue) on a blank canvas
+        line_image = np.zeros_like(img)
+        approved_lines = []
+
+        if lines is not None:
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                angle = math.atan2(y2 - y1, x2 - x1) * 180 / np.pi
+
+                if abs(angle) < angle_thresh or abs(angle) > (180 - angle_thresh) or (90 - angle_thresh) < abs(angle) < (90 + angle_thresh):
+                    approved_lines.append(line[0])
+
+        return approved_lines
+
+
+    # checks if a line [x1,y1 to x2,y2] intersects with any line of forbidden_lines
+    def _is_line_interrupted(self, forbidden_lines, x1, y1, x2, y2):
+        # gets the linear equation [y = ax + b] that goes through p1 [x1,y1] and p2 [x2,y2] and outputs it as (a,b)
+        def eq_from_p(p1, p2):
+            p1x = p1[0]
+            p1y = p1[1]
+            p2x = p2[0]
+            p2y = p2[1]
+            if p2x != p1x:
+                a = (p2y - p1y) / (p2x - p1x)
+            else:
+                a = 100000
+
+            b = p2y - a * p2x
+
+            return (a,b)
+
+
+        # gets the intersection point between two linear equations [y = ax + b] and outputs it with a boolean telling if it exists [bool, x, y]
+        def inter_from_eqs(eq1, eq2):
+            a1, b1 = eq1
+            a2, b2 = eq2
+            if a1 == a2:
+                return (b1 == b2, a1, b1)
+
+            x = (b2 - b1) / (a1 - a2)
+            y = a1 * x + b1
+            return (True, x, y)
+
+
+        # checks if two lines intersect
+        def intersects(l1, l2):
+            p1 = l1[:2]
+            p2 = l1[2:]
+            p3 = l2[:2]
+            p4 = l2[2:]
+
+            eq1 = eq_from_p(p1, p2)
+            eq2 = eq_from_p(p3, p4)
+            status, x, y = inter_from_eqs(eq1, eq2)
+            x = round(x,0)
+            y = round(y,0)
+            if not status: return status
+
+            bx = [p1[0], p2[0]]
+            bx.sort()
+            bx1, bx2 = bx
+
+            bx = [p3[0], p4[0]]
+            bx.sort()
+            bx3, bx4 = bx
+
+            by = [p1[1], p2[1]]
+            by.sort()
+            by1, by2 = by
+
+            by = [p3[1], p4[1]]
+            by.sort()
+            by3, by4 = by
+
+            return bx1 <= x <= bx2 and bx3 <= x <= bx4 and by1 <= y <= by2 and by3 <= y <= by4
+
+        # ==============================================================================================================================
+        # assures points format to avoid rounding problems
+        x1 = int(x1)
+        y1 = int(y1)
+        x2 = int(x2)
+        y2 = int(y2)
+
+        # checks if the given lines intersects with any of the labyrinth lines
+        for i in forbidden_lines:
+            if intersects(i, [x1,y1,x2,y2]):
+                return True
+        return False
+
+
+    def _check_left(self, forbidden_lines, x, y, sec_w, sec_h):
+        n_inter = 0
+        n_inter += self._is_line_interrupted(forbidden_lines, x, y, x-sec_w, y)
+        n_inter += self._is_line_interrupted(forbidden_lines, x, y-0.25*sec_h, x-sec_w, y-0.25*sec_h)
+        n_inter += self._is_line_interrupted(forbidden_lines, x, y+0.25*sec_h, x-sec_w, y+0.25*sec_h)
+        return n_inter >= 2
+
+    def _check_right(self, forbidden_lines, x, y, sec_w, sec_h):
+        n_inter = 0
+        n_inter += self._is_line_interrupted(forbidden_lines, x, y, x+sec_w, y)
+        n_inter += self._is_line_interrupted(forbidden_lines, x, y-0.25*sec_h, x+sec_w, y-0.25*sec_h)
+        n_inter += self._is_line_interrupted(forbidden_lines, x, y+0.25*sec_h, x+sec_w, y+0.25*sec_h)
+        return n_inter >= 2
+
+    def _check_bottom(self, forbidden_lines, x, y, sec_w, sec_h):
+        n_inter = 0
+        n_inter += self._is_line_interrupted(forbidden_lines, x, y, x, y+sec_h)
+        n_inter += self._is_line_interrupted(forbidden_lines, x-0.25*sec_w, y, x-0.25*sec_w, y+sec_h)
+        n_inter += self._is_line_interrupted(forbidden_lines, x+0.25*sec_w, y, x+0.25*sec_w, y+sec_h)
+        return n_inter >= 2
+
+    def _check_top(self, forbidden_lines, x, y, sec_w, sec_h):
+        n_inter = 0
+        n_inter += self._is_line_interrupted(forbidden_lines, x, y, x, y-sec_h)
+        n_inter += self._is_line_interrupted(forbidden_lines, x-0.25*sec_w, y, x-0.25*sec_w, y-sec_h)
+        n_inter += self._is_line_interrupted(forbidden_lines, x+0.25*sec_w, y, x+0.25*sec_w, y-sec_h)
+        return n_inter >= 2
+
+
+    def find_labyrinth(self, img, grid_top, grid_down, grid_left, grid_right, grid_width, grid_height):
+        if self.labyrinth is None:
+            section_width = (grid_right - grid_left) / grid_width
+            section_height = (grid_down - grid_top) / grid_height
+            lines = self._getLines(img, 1, np.pi / 360, 50, 80, 10, 10)
+
+            section_tab = []
+            for i in range(grid_width):
+                for j in range(grid_height):
+                    x = int(grid_left + (i + 0.5) * section_width)
+                    y = int(grid_top + (j + 0.5) * section_height)
+
+                    l = 'l' if self._check_left(lines, x, y, section_width, section_height) or i == 0 else ''
+                    r = 'r' if self._check_right(lines, x, y, section_width, section_height) or i == grid_width-1 else ''
+                    b = 'b' if self._check_bottom(lines, x, y, section_width, section_height) or j == grid_height-1 else ''
+                    t = 't' if self._check_top(lines, x, y, section_width, section_height) or j == 0 else ''
+
+            section = l + r + b + t
+            section_tab.append(section)
+            self.labyrinth = np.reshape(section_tab, (grid_width, grid_height)).T
+        return self.labyrinth
+
+
+
+    def where_arucos(self, img, aru_id):
+        # detection of all arucos
+        dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+        detectorParams = cv2.aruco.DetectorParameters()
+        detector = cv2.aruco.ArucoDetector(dictionary, detectorParams)
+        marker_corners, marker_ids, rejected_candidates = detector.detectMarkers(img)
+
+        # looking for asked aruco
+        pos = np.where(marker_ids.flatten() == [aru_id])
+
+        # if no asked aruco
+        if len(pos[0]) == 0:
+            print(f"Didn't find the aruco {aru_id} in the picture.")
+            return (-1,-1,-1)
+
+        # else
+        # boar method to get the center (averaging the x,y coordinates of the corners)
+        moy_x = 0
+        moy_y = 0
+        for i in marker_corners[pos[0][0]][0]:
+            moy_x += i[0]
+            moy_y += i[1]
+
+        moy_x /= 4
+        moy_y /= 4
+
+        # placing the points
+        marker_length = 1.0
+        obj_points = np.array([
+            [-marker_length/2,  marker_length/2, 0],  # Top-left
+            [ marker_length/2,  marker_length/2, 0],  # Top-right
+            [ marker_length/2, -marker_length/2, 0],  # Bottom-right
+            [-marker_length/2, -marker_length/2, 0]   # Bottom-left
+        ], dtype=np.float32)
+
+
+        # Camera matrix and distortion coefficients (a regler une fois la camera calibrée)
+        camera_matrix = np.array([[1, 0, 1], [0, 1, 1], [0, 0, 1]])
+        dist_coeffs = np.zeros((4, 1))
+
+        # Solve for pose
+        success, rvec, tvec = cv2.solvePnP(obj_points, marker_corners[0][0], camera_matrix, dist_coeffs)
+
+        # Convert rotation vector to rotation matrix
+        rotation_matrix, _ = cv2.Rodrigues(rvec)
+
+        # Extract Euler angles (ZYX convention)
+        sy = np.sqrt(rotation_matrix[0,0] * rotation_matrix[0,0] + rotation_matrix[1,0] * rotation_matrix[1,0])
+        singular = sy < 1e-6
+
+        if not singular:
+            yaw = np.arctan2(rotation_matrix[1,0], rotation_matrix[0,0])
+        else:
+            yaw = np.arctan2(-rotation_matrix[0,1], rotation_matrix[1,1])
+
+        yaw_deg = np.degrees(yaw)
+
+
+        return moy_x,moy_y,yaw_deg
+
+
+
+
+
+    def runMaze(self, maze, start_r1, stop_r1, angle_r1 = 0, start_r2 = 0, stop_r2 = 4, angle_r2 = 0):
+        pathfinder = Pathfinding()
+        path_robo1 = pathfinder.get_path_from_maze(maze, start_r1, stop_r1)
+        path_robo2 = pathfinder.get_path_from_maze(maze, start_r2, stop_r2)
+
+        botn = os.environ.get("XMPP_USERNAME")
+
+        if botn is None:
+            raise Exception("Could not get robot name through env variable")
+
+        n = botn.split("-")[-1]
+
+        print("Robots crossing at:")
+        pathfinder.problem_detect(path_robo1, path_robo2)
+        print("to be checked later")
+
+        json_commands = {}
+        if n == 1:
+            json_commands = pathfinder.get_json_from_maze(maze, start_r1, stop_r1, False, angle_r1)
+        else:
+            json_commands = pathfinder.get_json_from_maze(maze, start_r2, stop_r2, False, angle_r2)
+
+        for i in json_commands["commands"][:3]:
+            if i["command"] == "rotate":
+                rotation = int(i["args"][0])
+                self.turn(rotation)
+            elif i["command"] == "forward":
+                frwrd = int(i["args"][0])
+                self.safeForward(200 * frwrd)
+
 
 if __name__ == "__main__":
     Ab = AlphaBot2()

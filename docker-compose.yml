@@ -8,7 +8,7 @@ services:
     cap_add:
       - SYS_RAWIO
     volumes:
-      - ./alphabot_agent:/alphabot_agent
+      - ./alphabot_agent:/app/alphabot_agent
     env_file: ./env/prosody.env
     environment:
       - XMPP_USERNAME=${AGENT_NAME}
@@ -27,8 +27,20 @@ services:
     extra_hosts:
       - "prosody:${PROSODY_IP}"
 
+  camera_agent:
+    build: ./camera_agent/
+    container_name: camera_agent
+    volumes:
+      - ./camera_agent:/app/src
+    privileged: true
+    env_file: ./env/prosody.env
+    environment:
+      - XMPP_USERNAME=camera_agent
+    extra_hosts:
+      - "prosody:${PROSODY_IP}"
+
   prosody:
-    image: prosody/prosody:latest
+    image: prosody:latest
     container_name: prosody
     ports:
       - "5222:5222"
@@ -82,7 +94,7 @@ services:
     image: dij0s/expose:latest
     container_name: xmpp_dashboard
     ports:
-      - "8888:8888"
+      - "80:8888"
     networks:
       xmpp_network:
         ipv4_address: 172.20.0.5
@@ -103,12 +115,11 @@ services:
   gate_handler:
     build: ./mosquitto/client
     container_name: gate_handler
+    env_file: ./env/prosody.env
     privileged: true
     volumes:
       - ./mosquitto/client:/app
       - /var/run/dbus:/var/run/dbus
-    devices:
-      - /dev/bus/usb:/dev/bus/usb
     cap_add:
       - NET_ADMIN
       - SYS_ADMIN

@@ -1,8 +1,16 @@
-FROM dtcooper/raspberrypi-os:python3.9
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 
-RUN apt update
-RUN apt install -y ttf-wqy-zenhei python3-pip python3-smbus python3-serial libgl1-mesa-glx libglib2.0-0
+WORKDIR /app
 
-RUN pip install --no-cache-dir RPi.GPIO spidev rpi_ws281x spade==3.3.3 opencv-python aiohttp
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends \
+    build-essential \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxrender1 \
+    libxext6 \
+    && rm -rf /var/lib/apt/lists/*
 
-CMD ["python", "-m", "alphabot_agent"]
+
+CMD ["uv", "run", "--project", "./alphabot_agent/", "-m", "alphabot_agent"]

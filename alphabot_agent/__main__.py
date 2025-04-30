@@ -1,11 +1,16 @@
 import asyncio
 import logging
 import os
+import time
+import RPi.GPIO as GPIO
+import base64
+import numpy as np
+import cv2
 from enum import Enum
 
 import aiohttp
 from spade.agent import Agent
-from spade.behaviour import CyclicBehaviour
+from spade.behaviour import CyclicBehaviour, OneShotBehaviour
 from spade.message import Message
 
 from alphabot_agent.alphabotlib.AlphaBot2 import AlphaBot2
@@ -13,6 +18,8 @@ from alphabot_agent.alphabotlib.AlphaBot2 import AlphaBot2
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("AlphaBotAgent")
+
+last_photo = None
 
 # Enable SPADE and XMPP specific logging
 for log_name in ["spade", "aioxmpp", "xmpp"]:
@@ -90,6 +97,8 @@ class AlphaBotAgent(Agent):
             },
         )
 
+        self.bot = AlphaBot2()
+
         # Add a periodic heartbeat behavior
         heartbeat_behavior = self.HeartbeatBehavior()
         self.add_behaviour(heartbeat_behavior)
@@ -97,6 +106,9 @@ class AlphaBotAgent(Agent):
         # Add command listener behavior
         command_behavior = self.XMPPCommandListener()
         self.add_behaviour(command_behavior)
+
+        waitForStartBehavior = self.waitForStartBehavior()
+        self.add_behaviour(waitForStartBehavior)
 
         # Set initial state after setup
         await self.set_state(BotState.IDLE, "")
@@ -110,10 +122,82 @@ class AlphaBotAgent(Agent):
                 )  # Send current state as heartbeat
             await asyncio.sleep(30)
 
+    class waitForStartBehavior(OneShotBehaviour):
+        async def run(self):
+
+            def waitForUpJoystick():
+                UP = 8
+                BUZ = 4
+                GPIO.setmode(GPIO.BCM)
+                GPIO.setwarnings(False)
+                GPIO.setup(UP, GPIO.IN, GPIO.PUD_UP)
+                GPIO.setup(BUZ, GPIO.OUT)
+
+
+                def beep_on():
+                    GPIO.output(BUZ, GPIO.HIGH)
+                    pass
+
+                def beep_off():
+                    GPIO.output(BUZ, GPIO.LOW)
+                    pass
+
+                while True:
+                    time.sleep(0.05)
+                    if GPIO.input(UP) == 0:
+                        beep_on()
+                        while GPIO.input(UP) == 0:
+                            time.sleep(0.05)
+                        beep_off()
+                        break
+
+            waitForUpJoystick()
+            self.agent.add_behaviour(self.agent.AskPhotoBehaviour())
+            # We can start the maze resolution !
+
+    class ProcessImageBehaviour(OneShotBehaviour):
+        async def __init__(self, img):
+            super().__init__()
+            self.img = img
+
+        async def run(self):
+            rotation = -3.6
+            x_pos = [152,725]
+            y_pos = [68,1824]
+
+            grid_top = 45
+            grid_down = 475
+            grid_left = 65
+            grid_right = 1680
+            grid_width = 11
+            grid_height = 3
+
+            # Crop and rotate the image
+            cropped = self.agent.robot.cropImage(self.img)
+            # This will update the labyrinth var inside the robot class
+            self.agent.robot.find_labyrinth(cropped, grid_top, grid_down, grid_left, grid_right, grid_width, grid_height)
+
+    class AskPhotoBehaviour(OneShotBehaviour):
+
+        async def run(self):
+            global last_photo
+            msg = Message(to="camera_agent@prosody")
+            msg.set_metadata("performative", "inform")
+            msg.body = "Vasy donne la photo là..."
+            if last_photo is not None and time.time() - last_photo < 500:
+                time.sleep((500 - (time.time() - last_photo)) / 1000)
+            msg = await self.send(msg)
+            last_photo = time.time()
+            if msg:
+                img_data = base64.b64decode(msg.body)
+                nparr = np.frombuffer(img_data, np.uint8)
+                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                self.agent.add_behaviour(self.agent.ProcessImageBehaviour(img))
+            else:
+                logger.error("Could not get photo in return of camera_agent")
+
+
     class XMPPCommandListener(CyclicBehaviour):
-        async def on_start(self):
-            self.ab = AlphaBot2()
-            # Initial state is already set in setup()
 
         async def run(self):
             msg = await self.receive(timeout=100)
@@ -123,6 +207,9 @@ class AlphaBotAgent(Agent):
                 )
 
                 command = msg.body
+                if not command.startswith("command:"):
+                    return
+                command = command.replace("command:", "")
                 # Set state to EXECUTING and notify immediately
                 await self.agent.set_state(BotState.EXECUTING, command)
 
@@ -149,28 +236,28 @@ class AlphaBotAgent(Agent):
                 logger.info(
                     f"[Behavior] Moving forward safely for {distance} mm"
                 )
-                self.ab.safeForward(mm=distance)
+                self.agent.bot.safeForward(mm=distance)
 
             elif command == "turn":
                 angle = args[0]
                 angle = int(angle)
                 logger.info("[Behavior] Turning...")
-                self.ab.turn(angle=angle)
+                self.agent.bot.turn(angle=angle)
             elif command == "full_calibration":
                 logger.info("Starting full calibration")
-                self.ab.fullCalibration()
+                self.agent.bot.fullCalibration()
             elif command == "calibrate_turn":
                 logger.info("Calibrating turn...")
-                self.ab.calibrateTurn()
+                self.agent.bot.calibrateTurn()
             elif command == "calibrate_sensors":
                 logger.info("[Behavior] Calibrating sensors...")
-                self.ab.calibrateTRSensors()
+                self.agent.bot.calibrateTRSensors()
             elif command == "calibrate_forward":
                 logger.info("[Behavior] Calibrating forward...")
-                self.ab.calibrateForward()
+                self.agent.bot.calibrateForward()
             elif command == "calibrate_forward_correction":
                 logger.info("Calibrating forward correction")
-                self.ab.calibrateForwardCorrection()
+                self.agent.bot.calibrateForwardCorrection()
 
             elif command.startswith("motor "):
                 try:
@@ -180,9 +267,9 @@ class AlphaBotAgent(Agent):
                     logger.info(
                         f"[Behavior] Setting motor speeds to {left_speed} (left) and {right_speed} (right)..."
                     )
-                    self.ab.setMotor(left_speed, right_speed)
+                    self.agent.bot.setMotor(left_speed, right_speed)
                     await asyncio.sleep(2)
-                    self.ab.stop()
+                    self.agent.bot.stop()
                 except (ValueError, IndexError):
                     logger.error(
                         "[Behavior] Invalid motor command format. Use 'motor <left_speed> <right_speed>'"
@@ -190,7 +277,7 @@ class AlphaBotAgent(Agent):
 
             elif command == "stop":
                 logger.info("[Behavior] Stopping...")
-                self.ab.stop()
+                self.agent.bot.stop()
 
             else:
                 logger.warning(f"[Behavior] Unknown command: {command}")
@@ -221,7 +308,6 @@ async def main():
             await agent.stop()
     except Exception as e:
         logger.error(f"Error starting agent: {str(e)}", exc_info=True)
-
 
 if __name__ == "__main__":
     try:

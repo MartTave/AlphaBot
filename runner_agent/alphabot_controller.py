@@ -40,7 +40,7 @@ class AlphabotController(Agent):
 
         async def run(self):
             if self.current_index < len(self.instructions):
-                instruction = self.instructions[self.current_index]
+                instruction = "command:" + self.instructions[self.current_index]
                 msg = Message(to=self.recipient_jid)
                 msg.set_metadata("performative", "inform")
                 msg.body = instruction

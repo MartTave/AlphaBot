@@ -98,23 +98,22 @@ class CameraAgent(agent.Agent):
         print("HTTP server stopped")
 
     class SendPhotoBehaviour(behaviour.OneShotBehaviour):
-        def __init__(self, requester_jid, camera):
+        def __init__(self, requester_jid):
             super().__init__()
             self.raw_requester_jid = requester_jid
             self.requester_jid = re.sub(r"(.*@.*)\/.*", r"\1", requester_jid)
-            self.camera = camera
             self.reset_timeout = lambda last: (
                 lambda now: int(round((now - last) * 1000))
-                >= self.camera.timeout
+                >= self.agent.timeout
             )
 
         async def run(self):
-            self.camera.processing_complete.clear()
+            self.agent.processing_complete.clear()
             now = time()
 
             # check if last request exceeded
             # predefined timeout
-            if not self.camera.requests.get(self.requester_jid, lambda _: True)(
+            if not self.agent.requests.get(self.requester_jid, lambda _: True)(
                 now
             ):
                 print(
@@ -128,7 +127,7 @@ class CameraAgent(agent.Agent):
                 await self.send(msg)
 
             print("Capturing image...")
-            camera = cv2.VideoCapture(2)
+            camera = self.agent.capture
 
             await asyncio.sleep(2)
 
@@ -146,7 +145,7 @@ class CameraAgent(agent.Agent):
                 encoded_img = base64.b64encode(img_data).decode("utf-8")
 
             # Check again if agent was banned during processing
-            if not self.camera.requests.get(self.requester_jid, lambda _: True)(
+            if not self.agent.requests.get(self.requester_jid, lambda _: True)(
                 now
             ):
                 print(
@@ -162,16 +161,15 @@ class CameraAgent(agent.Agent):
             msg.set_metadata("performative", "inform")
             msg.body = encoded_img
 
-            self.camera.requests[self.requester_jid] = self.reset_timeout(now)
-            self.camera.processing_complete.set()
+            self.agent.requests[self.requester_jid] = self.reset_timeout(now)
+            self.agent.processing_complete.set()
 
             await self.send(msg)
             print("Photo sent.")
 
     class WaitForRequestBehaviour(behaviour.CyclicBehaviour):
-        def __init__(self, camera):
+        def __init__(self):
             super().__init__()
-            self.camera = camera
 
         async def run(self):
             print("Waiting for request...")
@@ -180,15 +178,17 @@ class CameraAgent(agent.Agent):
                 print("Received camera image request.")
                 requester_jid = str(msg.sender)
                 self.agent.add_behaviour(
-                    self.agent.SendPhotoBehaviour(requester_jid, self.camera)
+                    self.agent.SendPhotoBehaviour(requester_jid)
                 )
 
     async def setup(self):
         print(f"{self.jid} is ready.")
         # Start the HTTP server
         await self.start_http_server()
+
+        self.capture = cv2.VideoCapture(0)
         # Keep the XMPP behaviors for photo requests
-        self.add_behaviour(self.WaitForRequestBehaviour(self))
+        self.add_behaviour(self.WaitForRequestBehaviour())
 
     async def stop(self):
         # Stop the HTTP server first

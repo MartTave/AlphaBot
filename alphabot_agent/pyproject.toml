@@ -1,0 +1,14 @@
+[project]
+name = "alphabot-agent"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "aiohttp>=3.10.5",
+    "matplotlib>=3.10.1",
+    "numpy>=2.2.5",
+    "opencv-python>=4.11.0.86",
+    "rpi-gpio>=0.7.1",
+    "rpi-ws281x>=5.0.0",
+    "spade==3.3.3",
+    "spidev>=3.6",
+]

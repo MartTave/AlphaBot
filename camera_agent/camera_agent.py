@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import re
+import datetime
 from time import time
 
 import aiofiles
@@ -106,6 +107,8 @@ class CameraAgent(agent.Agent):
                 lambda now: int(round((now - last) * 1000))
                 >= self.agent.timeout
             )
+            # Chunk size for splitting large images (100KB per chunk)
+            self.chunk_size = 100 * 1024
 
         async def run(self):
             self.agent.processing_complete.clear()
@@ -125,6 +128,7 @@ class CameraAgent(agent.Agent):
                 msg.body = "Request cancelled due to ban"
 
                 await self.send(msg)
+                return
 
             print("Capturing image...")
             camera = self.agent.capture
@@ -141,8 +145,16 @@ class CameraAgent(agent.Agent):
                 print("Failed to capture image.")
                 return
 
+            # Apply some compression to keep good quality but smaller size
+            encode_params = [cv2.IMWRITE_JPEG_QUALITY, 85]
             filename = "photo.jpg"
-            cv2.imwrite(filename, frame)
+            cv2.imwrite(filename, frame, encode_params)
+
+            # Get image dimensions for metadata
+            height, width, channels = frame.shape
+            image_format = "JPEG"
+            quality = 85
+            timestamp = datetime.datetime.now().isoformat()
 
             async with aiofiles.open(filename, "rb") as img_file:
                 img_data = await img_file.read()
@@ -161,15 +173,44 @@ class CameraAgent(agent.Agent):
                 await self.send(msg)
                 return
 
-            msg = Message(to=self.raw_requester_jid)
-            msg.set_metadata("performative", "inform")
-            msg.body = encoded_img
+            # Split the encoded image into chunks
+            total_chunks = (len(encoded_img) + self.chunk_size - 1) // self.chunk_size
+            total_size = len(encoded_img)
+            print(f"Splitting image into {total_chunks} chunks")
+
+            # Create a more descriptive metadata payload 
+            metadata_payload = f"Sending {total_chunks} chunks, total size {total_size} bytes, resolution {width}x{height}"
+            
+            # First, send metadata about the image
+            metadata_msg = Message(to=self.raw_requester_jid)
+            metadata_msg.set_metadata("performative", "inform")
+            metadata_msg.set_metadata("content_type", "image_metadata")
+            metadata_msg.set_metadata("total_chunks", str(total_chunks))
+            metadata_msg.set_metadata("total_size", str(total_size))
+            metadata_msg.body = metadata_payload
+            await self.send(metadata_msg)
+            await asyncio.sleep(0.1)  # Small delay between messages
+
+            # Send each chunk
+            for i in range(total_chunks):
+                start_idx = i * self.chunk_size
+                end_idx = min((i + 1) * self.chunk_size, len(encoded_img))
+                chunk = encoded_img[start_idx:end_idx]
+
+                chunk_msg = Message(to=self.raw_requester_jid)
+                chunk_msg.set_metadata("performative", "inform")
+                chunk_msg.set_metadata("content_type", "image_chunk")
+                chunk_msg.set_metadata("chunk_index", str(i))
+                chunk_msg.set_metadata("total_chunks", str(total_chunks))
+                chunk_msg.body = chunk
+
+                await self.send(chunk_msg)
+                await asyncio.sleep(0.1)  # Small delay between chunks to avoid flooding
+
+            print(f"Sent image in {total_chunks} chunks")
 
             self.agent.requests[self.requester_jid] = self.reset_timeout(now)
             self.agent.processing_complete.set()
-
-            await self.send(msg)
-            print("Photo sent.")
 
     class WaitForRequestBehaviour(behaviour.CyclicBehaviour):
         def __init__(self):
@@ -190,12 +231,14 @@ class CameraAgent(agent.Agent):
         # Start the HTTP server
         await self.start_http_server()
 
-        self.capture = cv2.VideoCapture(0)
+        self.capture = cv2.VideoCapture(2)
         # Set buffer size to 1 (minimum)
         self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 854)
-        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        # self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 854)
+        # self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
         # This is here to force the init the camera feed.
         self.capture.read()
 

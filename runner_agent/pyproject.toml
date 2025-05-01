@@ -4,9 +4,11 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["aiofiles==23.2.1", "spade==3.3.3"]
+dependencies = [
+    "aiofiles==23.2.1",
+ "pillow",
+ "spade==3.3.3",
+]
 
 [dependency-groups]
-dev = [
-    "ipdb>=0.13.13",
-]
+dev = ["ipdb>=0.13.13"]

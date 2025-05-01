@@ -208,12 +208,11 @@ class AlphaBotAgent(Agent):
 
 
     class AskPhotoBehaviour(OneShotBehaviour):
-
         async def run(self):
             global last_photo
             msg = Message(to="camera_agent@prosody")
             msg.set_metadata("performative", "inform")
-            msg.body = "Vasy donne la photo là..."
+            msg.body = "Requesting top-view picture"
             if last_photo is not None and time.time() - last_photo < 500:
                 delay = (500 - (time.time() - last_photo))
                 logger.info("500ms not elapsed since last request, sleeping for : " + str(delay))

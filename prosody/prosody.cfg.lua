@@ -49,3 +49,5 @@ authentication = "internal_plain"
 -- Custom Prosody config
 
 -- Increase max stanza size
+c2s_stanza_size_limit = 52428800
+s2s_stanza_size_limit = 52428800

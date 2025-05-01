@@ -108,7 +108,7 @@ class CameraAgent(agent.Agent):
                 >= self.agent.timeout
             )
             # Chunk size for splitting large images (100KB per chunk)
-            self.chunk_size = 7 * 1024 * 1024
+            self.chunk_size = 1 * 1024 * 1024
             self.quality = quality
 
         async def run(self):

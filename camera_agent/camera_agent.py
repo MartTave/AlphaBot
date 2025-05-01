@@ -142,11 +142,11 @@ class CameraAgent(agent.Agent):
 
             if self.quality == "full":
 
-                self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-                self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+                self.agent.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+                self.agent.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
             else:
-                self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 854)
-                self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                self.agent.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 854)
+                self.agent.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
             ret, frame = camera.read()
 

@@ -290,7 +290,10 @@ class AlphaBotAgent(Agent):
             global last_photo
             msg = Message(to="camera_agent@prosody")
             msg.set_metadata("performative", "inform")
-            msg.body = "full"
+            if last_photo is None:
+                msg.body = "full quality"
+            else:
+                msg.body = "low quality"
             if last_photo is not None and time.time() - last_photo < 500:
                 delay = (500 - (time.time() - last_photo))
                 logger.info("500ms not elapsed since last request, sleeping for : " + str(delay))

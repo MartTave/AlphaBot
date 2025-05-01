@@ -140,13 +140,15 @@ class CameraAgent(agent.Agent):
 
             await asyncio.sleep(0.5)  # Small delay to stabilize
 
-            if self.quality == "full":
+            if self.quality == "full quality":
 
                 self.agent.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
                 self.agent.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-            else:
+            elif self.quality == "low quality":
                 self.agent.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 854)
                 self.agent.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            else:
+                raise Exception("Quality not recognized")
 
             ret, frame = camera.read()
 

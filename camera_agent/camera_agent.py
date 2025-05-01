@@ -140,6 +140,14 @@ class CameraAgent(agent.Agent):
 
             await asyncio.sleep(0.5)  # Small delay to stabilize
 
+            if self.quality == "full":
+
+                self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+                self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+            else:
+                self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 854)
+                self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
             ret, frame = camera.read()
 
             if not ret:

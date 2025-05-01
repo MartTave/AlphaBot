@@ -7,6 +7,7 @@ import base64
 import numpy as np
 import cv2
 from enum import Enum
+import datetime
 
 import aiohttp
 from spade.agent import Agent
@@ -208,6 +209,85 @@ class AlphaBotAgent(Agent):
 
 
     class AskPhotoBehaviour(OneShotBehaviour):
+        def __init__(self):
+            super().__init__()
+            self.response = None
+            self.image_chunks = {}
+            self.total_chunks = 0
+            self.total_size = 0
+            self.received_chunks = 0
+            self.complete_image = None
+
+        async def receive_image_chunks(self, timeout=30):
+            """Receive and reassemble chunked image data"""
+            start_time = datetime.datetime.now()
+            timeout_delta = datetime.timedelta(seconds=timeout)
+
+            # Wait for the metadata message first
+            metadata_msg = await self.receive(timeout=5)
+            if not metadata_msg:
+                print("No metadata received within timeout period")
+                return False
+
+            if metadata_msg.get_metadata("content_type") != "image_metadata":
+                print(f"Unexpected message type: {metadata_msg.get_metadata('content_type')}")
+                return False
+
+            # Parse metadata from message metadata instead of body
+            try:
+                # Get metadata from message metadata fields
+                self.total_chunks = int(metadata_msg.get_metadata("total_chunks"))
+                self.total_size = int(metadata_msg.get_metadata("total_size"))
+
+                # Print the descriptive message from the body
+                print(metadata_msg.body)
+
+            except Exception as e:
+                print(f"Error parsing metadata: {e}")
+                return False
+
+            # Receive all chunks
+            while self.received_chunks < self.total_chunks:
+                # Check timeout
+                if datetime.datetime.now() - start_time > timeout_delta:
+                    print(f"Timeout receiving chunks. Got {self.received_chunks} of {self.total_chunks}")
+                    return False
+
+                chunk_msg = await self.receive(timeout=5)
+                if not chunk_msg:
+                    print("No chunk received within timeout")
+                    continue
+
+                if chunk_msg.get_metadata("content_type") != "image_chunk":
+                    print(f"Unexpected message type: {chunk_msg.get_metadata('content_type')}")
+                    continue
+
+                # Store the chunk
+                chunk_index = int(chunk_msg.get_metadata("chunk_index"))
+                self.image_chunks[chunk_index] = chunk_msg.body
+                self.received_chunks += 1
+
+                if self.received_chunks % 5 == 0:  # Log progress every 5 chunks
+                    print(f"Received {self.received_chunks}/{self.total_chunks} chunks")
+
+            # Reassemble the complete image
+            if len(self.image_chunks) == self.total_chunks:
+                reassembled = ""
+                for i in range(self.total_chunks):
+                    reassembled += self.image_chunks[i]
+
+                if len(reassembled) == self.total_size:
+                    self.complete_image = reassembled
+                    print("Image reassembled successfully")
+                    return True
+                else:
+                    print(f"Reassembled size ({len(reassembled)}) doesn't match expected size ({self.total_size})")
+                    return False
+            else:
+                print(f"Missing chunks. Got {len(self.image_chunks)}/{self.total_chunks}")
+                return False
+
+
         async def run(self):
             global last_photo
             msg = Message(to="camera_agent@prosody")
@@ -218,12 +298,15 @@ class AlphaBotAgent(Agent):
                 logger.info("500ms not elapsed since last request, sleeping for : " + str(delay))
                 time.sleep(delay / 1000)
             await self.send(msg)
-            msg = await self.receive(timeout=5000)
+            success = await self.receive_image_chunks()
+            if not success or self.complete_image is None:
+                logger.error("Could not get full picture...")
+                return
+            msg = self.complete_image
             logger.info("Got picture !!!")
             last_photo = time.time()
-            logger.info(msg)
             if msg:
-                img_data = base64.b64decode(msg.body)
+                img_data = base64.b64decode(msg)
                 nparr = np.frombuffer(img_data, np.uint8)
                 img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 self.agent.add_behaviour(self.agent.ProcessImageBehaviour(img))

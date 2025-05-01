@@ -99,7 +99,7 @@ class CameraAgent(agent.Agent):
         print("HTTP server stopped")
 
     class SendPhotoBehaviour(behaviour.OneShotBehaviour):
-        def __init__(self, requester_jid):
+        def __init__(self, requester_jid, quality="normal"):
             super().__init__()
             self.raw_requester_jid = requester_jid
             self.requester_jid = re.sub(r"(.*@.*)\/.*", r"\1", requester_jid)
@@ -109,10 +109,18 @@ class CameraAgent(agent.Agent):
             )
             # Chunk size for splitting large images (100KB per chunk)
             self.chunk_size = 100 * 1024
+            self.quality = quality
 
         async def run(self):
             self.agent.processing_complete.clear()
             now = time()
+
+            if self.quality == "full":
+                self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+                self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+            else:
+                self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 854)
+                self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
             # check if last request exceeded
             # predefined timeout
@@ -158,7 +166,7 @@ class CameraAgent(agent.Agent):
 
             async with aiofiles.open(filename, "rb") as img_file:
                 img_data = await img_file.read()
-                encoded_img = base64.b64encode(img_data).decode("utf-8")
+                encoded_img = base64.b64encode(frame).decode("utf-8")
 
             # Check again if agent was banned during processing
             if not self.agent.requests.get(self.requester_jid, lambda _: True)(
@@ -222,8 +230,9 @@ class CameraAgent(agent.Agent):
             if msg:
                 print("Received camera image request.")
                 requester_jid = str(msg.sender)
+                quality = str(msg.body)
                 self.agent.add_behaviour(
-                    self.agent.SendPhotoBehaviour(requester_jid)
+                    self.agent.SendPhotoBehaviour(requester_jid, quality=quality)
                 )
 
     async def setup(self):

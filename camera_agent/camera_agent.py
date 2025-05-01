@@ -159,7 +159,7 @@ class CameraAgent(agent.Agent):
 
             async with aiofiles.open(filename, "rb") as img_file:
                 img_data = await img_file.read()
-                encoded_img = base64.b64encode(frame).decode("utf-8")
+                encoded_img = base64.b64encode(img_data).decode("utf-8")
 
             # Check again if agent was banned during processing
             if not self.agent.requests.get(self.requester_jid, lambda _: True)(

@@ -6,9 +6,10 @@ import RPi.GPIO as GPIO
 import base64
 import numpy as np
 import cv2
+import io
 from enum import Enum
 import datetime
-
+from PIL import Image
 import aiohttp
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour, OneShotBehaviour
@@ -180,9 +181,6 @@ class AlphaBotAgent(Agent):
             cv2.circle(cropped, (grid_left, grid_top), 3, [255, 0, 0])
             cv2.circle(cropped, (grid_right, grid_down), 3, [255, 0, 0])
 
-
-            cv2.imwrite("./alphabot_agent/frame.png", cropped)
-
             # This will update the labyrinth var inside the robot class
             self.agent.robot.find_labyrinth(cropped, grid_top, grid_down, grid_left, grid_right, grid_width, grid_height)
             posx, posy, angle = self.agent.robot.where_arucos(cropped, 12)
@@ -304,6 +302,7 @@ class AlphaBotAgent(Agent):
                 return
             msg = self.complete_image
             logger.info("Got picture !!!")
+            logger.info(f"Pic length : {len(msg)}")
             last_photo = time.time()
             if msg:
                 img_data = base64.b64decode(msg)

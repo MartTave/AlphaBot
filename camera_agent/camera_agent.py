@@ -115,13 +115,6 @@ class CameraAgent(agent.Agent):
             self.agent.processing_complete.clear()
             now = time()
 
-            if self.quality == "full":
-                self.agent.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-                self.agent.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-            else:
-                self.agent.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 854)
-                self.agent.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-
             # check if last request exceeded
             # predefined timeout
             if not self.agent.requests.get(self.requester_jid, lambda _: True)(

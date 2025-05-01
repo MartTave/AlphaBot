@@ -30,6 +30,8 @@ services:
   camera_agent:
     build: ./camera_agent/
     container_name: camera_agent
+    ports:
+      - "3001:3001"
     volumes:
       - ./camera_agent:/app/src
     privileged: true

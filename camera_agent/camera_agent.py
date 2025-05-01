@@ -107,8 +107,8 @@ class CameraAgent(agent.Agent):
                 lambda now: int(round((now - last) * 1000))
                 >= self.agent.timeout
             )
-            # Chunk size for splitting large images (100KB per chunk)
-            self.chunk_size = 1 * 1024 * 1024
+            # Chunk size for splitting large images (500KB per chunk)
+            self.chunk_size = 500 * 1024
             self.quality = quality
 
         async def run(self):

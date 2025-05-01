@@ -178,9 +178,9 @@ class CameraAgent(agent.Agent):
             total_size = len(encoded_img)
             print(f"Splitting image into {total_chunks} chunks")
 
-            # Create a more descriptive metadata payload 
+            # Create a more descriptive metadata payload
             metadata_payload = f"Sending {total_chunks} chunks, total size {total_size} bytes, resolution {width}x{height}"
-            
+
             # First, send metadata about the image
             metadata_msg = Message(to=self.raw_requester_jid)
             metadata_msg.set_metadata("performative", "inform")
@@ -231,7 +231,7 @@ class CameraAgent(agent.Agent):
         # Start the HTTP server
         await self.start_http_server()
 
-        self.capture = cv2.VideoCapture(2)
+        self.capture = cv2.VideoCapture(0)
         # Set buffer size to 1 (minimum)
         self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 

@@ -40,7 +40,7 @@ services:
       - "prosody:${PROSODY_IP}"
 
   prosody:
-    image: prosody/prosody:latest
+    image: prosody:latest
     container_name: prosody
     ports:
       - "5222:5222"
@@ -94,7 +94,7 @@ services:
     image: dij0s/expose:latest
     container_name: xmpp_dashboard
     ports:
-      - "8888:8888"
+      - "80:8888"
     networks:
       xmpp_network:
         ipv4_address: 172.20.0.5

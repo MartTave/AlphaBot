@@ -1,6 +1,8 @@
 import threading
 import RPi.GPIO as GPIO
 import time
+
+from numpy._core.shape_base import block
 import cv2
 import os
 import Image
@@ -371,7 +373,7 @@ class AlphaBot2(object):
 
         pass
 
-    def safeForward(self, mm=100):
+    def safeForward(self, mm=100, blocking=False):
         if self.forwardEquation:
             duration = self.forwardEquation(mm - self.forward_braking_time) / 1000
         else:
@@ -388,7 +390,6 @@ class AlphaBot2(object):
         GPIO.output(self.BIN1, GPIO.LOW)
         GPIO.output(self.BIN2, GPIO.HIGH)
 
-
         def run_for_time(duration):
             start_time = time.time()
             while time.time() - start_time < duration:
@@ -400,6 +401,8 @@ class AlphaBot2(object):
 
         thread = threading.Thread(target=run_for_time, args=(duration,))
         thread.start()
+        if blocking:
+            thread.join()
 
     def forward(self):
         self.PWMA.ChangeDutyCycle(self.PA)
@@ -753,10 +756,13 @@ class AlphaBot2(object):
         return grid_x, grid_y
 
 
-    def runMaze(self, maze, start_r1, stop_r1, angle_r1 = 0, start_r2 = 0, stop_r2 = 4, angle_r2 = 0, bot = 1):
+    def runMaze(self, start_r1, stop_r1, angle_r1 = 0, start_r2 = 0, stop_r2 = 4, angle_r2 = 0):
         pathfinder = Pathfinding()
-        path_robo1 = pathfinder.get_path_from_maze(maze, start_r1, stop_r1)
-        path_robo2 = pathfinder.get_path_from_maze(maze, start_r2, stop_r2)
+        if self.labyrinth is None:
+            logger.error("Can't run maze wihtout loading it first !")
+            return
+        path_robo1 = pathfinder.get_path_from_maze(self.labyrinth, start_r1, stop_r1)
+        path_robo2 = pathfinder.get_path_from_maze(self.labyrinth, start_r2, stop_r2)
 
         botn = os.environ.get("XMPP_USERNAME")
 
@@ -774,9 +780,9 @@ class AlphaBot2(object):
 
         json_commands = {}
         if n == 1:
-            json_commands = pathfinder.get_json_from_maze(maze, start_r1, stop_r1, False, angle_r1)
+            json_commands = pathfinder.get_json_from_maze(self.labyrinth, start_r1, stop_r1, False, angle_r1)
         else:
-            json_commands = pathfinder.get_json_from_maze(maze, start_r2, stop_r2, False, angle_r2)
+            json_commands = pathfinder.get_json_from_maze(self.labyrinth, start_r2, stop_r2, False, angle_r2)
 
         for idx, i in enumerate(json_commands["commands"]):
             if i["command"] == "rotate":
@@ -784,32 +790,7 @@ class AlphaBot2(object):
                 self.turn(rotation)
             elif i["command"] == "forward":
                 frwrd = int(i["args"][0])
-                self.safeForward(200 * frwrd)
-            
-            if idx != 0:
-                if i["command"] == "rotate":
-                    break
-        self.stop()
-
-    def runBot(self, img):
-        rotation = -3.6
-        x_pos = [152,725]
-        y_pos = [68,1824]
-        img = self.cropImage(img, rotation, x_pos, y_pos)
-        cv2.imwrite("cropped.jpg", img)
-
-        # grid parameters for temporary camera
-        grid_top = 45
-        grid_down = 475
-        grid_left = 65
-        grid_right = 1680
-        grid_width = 11
-        grid_height = 3
-        
-        # finding the labyrinth
-        tab = self.find_labyrinth(img,grid_top,grid_down,grid_left,grid_right,grid_width,grid_height)
-
-
+                self.safeForward(200 * frwrd, blocking=True)
 
 
 if __name__ == "__main__":

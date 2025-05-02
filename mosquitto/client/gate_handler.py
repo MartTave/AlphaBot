@@ -3,6 +3,7 @@ import functools
 import sys
 import logging
 from datetime import datetime
+import time
 
 # Configure logging
 logging.basicConfig(
@@ -24,6 +25,7 @@ logger.info("4. Second ending gate (gate3/gate4) → global_end")
 
 import paho.mqtt.client as mqtt
 from bleak import BleakClient, BleakScanner
+from bleak.exc import BleakError
 
 
 class gate:
@@ -31,29 +33,81 @@ class gate:
     BUTTON_UUID = "794f1fe3-9be8-4875-83ba-731e1037a881"
     SENSOR_UUID = "794f1fe3-9be8-4875-83ba-731e1037a883"
 
-    def __init__(self, address):
+    def __init__(self, address, name):
         self.address = address
+        self.name = name
+        self.client = None
+        self.device = None
+        self.connected = False
+        self.last_reconnect_attempt = 0
+        self.reconnect_interval = 5  # seconds between reconnection attempts
 
     async def connect(self):
-        self.device = await BleakScanner.find_device_by_address(self.address)
-        if not self.device:
-            logger.error(f"Device {self.address} not found!")
-            return
-        else:
-            logger.info(f"Found device {self.address}!")
-            self.client = BleakClient(self.device)
-            logger.info(f"Connecting to {self.address}...")
-            await self.client.connect()
-            logger.info("Connection successful.")
+        try:
+            self.device = await BleakScanner.find_device_by_address(self.address)
+            if not self.device:
+                logger.warning(f"Device {self.name} ({self.address}) not found!")
+                self.connected = False
+                return False
+            else:
+                logger.info(f"Found device {self.name} ({self.address})!")
+                self.client = BleakClient(self.device, disconnected_callback=self._on_disconnect)
+                logger.info(f"Connecting to {self.name}...")
+                await self.client.connect()
+                logger.info(f"Connection successful to {self.name}.")
+                self.connected = True
+                return True
+        except BleakError as e:
+            logger.error(f"Connection error to {self.name}: {str(e)}")
+            self.connected = False
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error connecting to {self.name}: {str(e)}")
+            self.connected = False
+            return False
+    
+    def _on_disconnect(self, client):
+        logger.warning(f"⚠️ Gate {self.name} disconnected!")
+        self.connected = False
 
     async def disconnect(self):
-        await self.client.disconnect()
+        if self.client and self.client.is_connected:
+            await self.client.disconnect()
+            self.connected = False
+            logger.info(f"Disconnected from {self.name}")
+
+    async def try_reconnect(self):
+        """Attempt to reconnect the gate if it's disconnected"""
+        now = time.time()
+        if not self.connected and (now - self.last_reconnect_attempt) > self.reconnect_interval:
+            self.last_reconnect_attempt = now
+            logger.info(f"Attempting to reconnect to {self.name}...")
+            return await self.connect()
+        return self.connected
 
     async def start_listening_sensor(self, func):
-        await self.client.start_notify(self.SENSOR_UUID, func)
+        if self.connected and self.client:
+            try:
+                await self.client.start_notify(self.SENSOR_UUID, func)
+                logger.info(f"Started sensor notifications for {self.name}")
+                return True
+            except Exception as e:
+                logger.error(f"Error starting notifications on {self.name}: {str(e)}")
+                self.connected = False
+                return False
+        return False
 
     async def stop_listening_sensor(self):
-        await self.client.stop_notify(self.SENSOR_UUID)
+        if self.connected and self.client:
+            try:
+                await self.client.stop_notify(self.SENSOR_UUID)
+                return True
+            except Exception:
+                return False
+        return False
+
+    def is_connected(self):
+        return self.connected
 
 
 class MQTTGateHandler:
@@ -81,6 +135,10 @@ class MQTTGateHandler:
         # Just keeping this for compatibility with existing code
         self.gate_pairs = {}
         self.gate_instances = {}
+        
+        # Gate connection status
+        self.all_gates_connected = False
+        self.connected_gate_count = 0
 
         # Define starting gates and ending gates
         # In our setup, gate1 and gate2 are starting gates, gate3 and gate4 are ending gates
@@ -105,6 +163,10 @@ class MQTTGateHandler:
         
         # MQTT topics
         self.reset_topic = "timer/reset"
+        self.status_topic = "timer/status"
+        
+        # System is active only if all gates are connected
+        self.system_active = False
         
     def on_connect(self, client, userdata, flags, rc, properties=None):
         logger.info(f"Connected to MQTT broker with result code {rc}")
@@ -122,12 +184,16 @@ class MQTTGateHandler:
                 logger.info("Manual reset command received via MQTT")
                 self.reset_gate_status()
                 # Publish confirmation
-                self.mqtt_client.publish("timer/status", "reset_complete")
+                self.mqtt_client.publish(self.status_topic, "reset_complete")
         except Exception as e:
             logger.error(f"Error processing message: {str(e)}")
 
     def sensor_callback(self, gate_name, sender, data):
-        asyncio.create_task(self.sensor_handler(gate_name, sender, data))
+        # Only process gate events if the system is active
+        if self.system_active:
+            asyncio.create_task(self.sensor_handler(gate_name, sender, data))
+        else:
+            logger.debug(f"Ignoring gate event from {gate_name} - system not active")
 
     async def sensor_handler(self, gate_name, sender, data):
         """
@@ -188,8 +254,6 @@ class MQTTGateHandler:
             else:
                 logger.info(f"Gate {gate_name} passage doesn't match any event trigger conditions")
                 should_reset = False
-
-            # should_reset is already initialized at the start of the method
                 
             if event_type:
                 logger.info(f"Event triggered: {event_type}")
@@ -212,15 +276,86 @@ class MQTTGateHandler:
                 logger.info("🟢 System reset complete - Ready for new race 🟢")
 
     async def setup_gates(self):
+        """Initial setup of all gates - creates gate instances but doesn't connect yet"""
         for gate_name, address in self.gates.items():
-            gate_instance = gate(address)
-            await gate_instance.connect()
+            gate_instance = gate(address, gate_name)
             self.gate_instances[gate_name] = gate_instance
+            logger.info(f"Created gate instance for {gate_name}")
+        
+        # First connection attempt for all gates
+        await self.connect_all_gates()
 
-            # Create a callback that properly handles the async nature of sensor_handler
-            callback = functools.partial(self.sensor_callback, gate_name)
-            await gate_instance.start_listening_sensor(callback)
-            logger.info(f"Setup complete for {gate_name}")
+    async def connect_all_gates(self):
+        """Attempt to connect to all gates"""
+        connected_count = 0
+        total_gates = len(self.gate_instances)
+        
+        for gate_name, gate_instance in self.gate_instances.items():
+            if await gate_instance.connect():
+                # Create a callback that properly handles the async nature of sensor_handler
+                callback = functools.partial(self.sensor_callback, gate_name)
+                if await gate_instance.start_listening_sensor(callback):
+                    connected_count += 1
+                    logger.info(f"✅ {gate_name} connected and listening")
+                else:
+                    logger.warning(f"⚠️ {gate_name} connected but failed to start notifications")
+            else:
+                logger.warning(f"❌ Failed to connect to {gate_name}")
+                
+        self.connected_gate_count = connected_count
+        self.update_system_status()
+        
+        return connected_count == total_gates
+
+    async def check_reconnect_gates(self):
+        """Check all gates and attempt to reconnect any disconnected ones"""
+        prev_connected_count = self.connected_gate_count
+        self.connected_gate_count = 0
+        
+        for gate_name, gate_instance in self.gate_instances.items():
+            # If gate is disconnected, try to reconnect
+            if not gate_instance.is_connected():
+                if await gate_instance.try_reconnect():
+                    # Successfully reconnected, start listening again
+                    callback = functools.partial(self.sensor_callback, gate_name)
+                    await gate_instance.start_listening_sensor(callback)
+                    logger.info(f"✅ Reconnected to {gate_name} successfully")
+                else:
+                    logger.debug(f"Still waiting for {gate_name} to become available...")
+            
+            # Count connected gates
+            if gate_instance.is_connected():
+                self.connected_gate_count += 1
+        
+        # Update system status if connection count changed
+        if prev_connected_count != self.connected_gate_count:
+            self.update_system_status()
+            
+        return self.all_gates_connected
+
+    def update_system_status(self):
+        """Update system status based on connected gates"""
+        total_gates = len(self.gate_instances)
+        prev_status = self.system_active
+        
+        self.all_gates_connected = (self.connected_gate_count == total_gates)
+        self.system_active = self.all_gates_connected
+        
+        # Report status changes
+        if self.system_active != prev_status:
+            if self.system_active:
+                status_msg = f"🟢 SYSTEM ACTIVE: All {total_gates} gates connected"
+                self.mqtt_client.publish(self.status_topic, "all_gates_connected")
+            else:
+                status_msg = f"🔴 SYSTEM INACTIVE: Only {self.connected_gate_count}/{total_gates} gates connected"
+                self.mqtt_client.publish(self.status_topic, f"gates_disconnected:{total_gates-self.connected_gate_count}")
+            
+            logger.info(status_msg)
+        
+        # Regular status report
+        logger.info(f"Gate Status: {self.connected_gate_count}/{total_gates} connected")
+        for name, gate_inst in self.gate_instances.items():
+            logger.info(f"  - {name}: {'✅ Connected' if gate_inst.is_connected() else '❌ Disconnected'}")
 
     def reset_gate_status(self):
         """Reset all gate passage tracking and prepare for a new race"""
@@ -256,15 +391,21 @@ class MQTTGateHandler:
             logger.info("Setting up BLE gates...")
             await self.setup_gates()
 
-            # Keep the program running
-            logger.info("Gate handler running and listening for passages...")
+            # Keep the program running and check gate connections
+            logger.info("Gate handler running and monitoring gate connections...")
             logger.info(f"AUTO-RESET: Enabled - System will reset after full event flow")
             logger.info(f"MANUAL-RESET: Available via MQTT topic '{self.reset_topic}' with payload 'reset'")
+            
             counter = 0
             while True:
                 await asyncio.sleep(1)
-                # Log status every minute to help with debugging
+                
+                # Check/reconnect gates every 5 seconds
                 counter += 1
+                if counter % 5 == 0:
+                    await self.check_reconnect_gates()
+                
+                # Log full status every minute
                 if counter % 60 == 0:
                     self.log_status()
                     counter = 0

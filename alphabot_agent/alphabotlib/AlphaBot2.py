@@ -768,7 +768,7 @@ class AlphaBot2(object):
         if botn is None:
             raise Exception("Could not get robot name through env variable")
 
-        n = botn.split("-")[-1]
+        n = int(botn.split("-")[-1])
 
         print("Robots crossing at:")
         pathfinder.problem_detect(path_robo1, path_robo2)

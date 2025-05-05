@@ -3,6 +3,10 @@ from matplotlib.lines import Line2D
 import time
 import json
 from PIL import Image, ImageDraw
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class Node:
         #Each node has connected nodes (conn), meaning an adjacent node is reachable
@@ -63,13 +67,12 @@ class Pathfinding:
         except:
             return []
 
-    def draw_on_pic(self, path, path2, save_image=False):
+    def draw_on_pic(self, path, path2, top_left, bottom_right, save_image=False):
         import base64
         import io
 
         board_size = (11,3)
-        top_left = (65,45)
-        bottom_right = (1680,475)
+        logger.error(f"Aahha {[2, 4, 5]}")
 
         with Image.open("maze.jpg") as im:
 

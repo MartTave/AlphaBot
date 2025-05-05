@@ -877,7 +877,7 @@ class AlphaBot2(object):
         labyrinth = find_labyrinth(cropped)
         robot, target, other_robot, other_target = detect_targets(cropped)
 
-        self.runMaze(robot, target, other_robot, other_target)
+        self.runMaze(robot, target, other_robot, other_target, (grid_left, grid_top), (grid_right, grid_down))
 
 
 
@@ -889,7 +889,7 @@ class AlphaBot2(object):
         return grid_x, grid_y
 
 
-    def runMaze(self, robot, target, other_robot, other_target):
+    def runMaze(self, robot, target, other_robot, other_target, top_left, bottom_right):
         pathfinder = Pathfinding()
         if self.labyrinth is None:
             logger.error("Can't run maze wihtout loading it first !")
@@ -904,7 +904,7 @@ class AlphaBot2(object):
 
         json_commands = pathfinder.get_json_from_path(curr_path, robot[1])
 
-        b64_image = pathfinder.draw_on_pic(curr_path, other_path)
+        b64_image = pathfinder.draw_on_pic(curr_path, other_path, top_left, bottom_right)
 
         requests.post(
             "http://prosody:3000/api/maze/plan",

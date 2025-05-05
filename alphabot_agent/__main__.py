@@ -19,7 +19,7 @@ from spade.message import Message
 from alphabot_agent.alphabotlib.AlphaBot2 import AlphaBot2
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger("AlphaBotAgent")
 
 last_photo = None

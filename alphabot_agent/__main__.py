@@ -39,55 +39,7 @@ class BotState(Enum):
 class AlphaBotAgent(Agent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.api_url = "http://prosody:3000/api/messages"
-        self.api_token = os.environ.get("API_TOKEN", "your_secret_token")
-        self.session = None
-        self._state = None
-
-    @property
-    def state(self):
-        return self._state
-
-    async def set_state(self, new_state, command):
-        """Async method to set state and notify about the change."""
-        if self._state != new_state:  # Only update if state actually changes
-            self._state = new_state
-            if self.session:
-                print(
-                    f"Calling notify_state_change for new state: {new_state} with command {command}"
-                )
-                await self.notify_state_change(command)
-
-    async def notify_state_change(self, label):
-        try:
-            state_update = {
-                "agent_jid": self.jid[0],
-                "type": "state_update",
-                "state": self.state.value,
-                "label": label,
-                "timestamp": int(asyncio.get_event_loop().time()),
-            }
-            print(state_update)
-
-            # Use keepalive connection
-            async with self.session.post(
-                self.api_url,
-                json=state_update,
-                headers={
-                    "Authorization": f"Bearer {self.api_token}",
-                    "Connection": "keep-alive",  # Add keepalive header
-                },
-                timeout=aiohttp.ClientTimeout(total=None),  # No timeout
-            ) as response:
-                if response.status == 200:
-                    logger.info(f"State update sent: {self.state.value}")
-                else:
-                    logger.error(
-                        f"Failed to send state update. Status: {response.status}"
-                    )
-
-        except Exception as e:
-            logger.error(f"Failed to send state update: {e}")
+        self.state = None
 
     async def setup(self):
         self.robot = AlphaBot2()
@@ -103,21 +55,21 @@ class AlphaBotAgent(Agent):
         )
 
         # Add a periodic heartbeat behavior
-        heartbeat_behavior = self.HeartbeatBehavior()
-        self.add_behaviour(heartbeat_behavior)
+        # heartbeat_behavior = self.HeartbeatBehavior()
+        # self.add_behaviour(heartbeat_behavior)
 
         # Add command listener behavior
         command_behavior = self.XMPPCommandListener()
         self.add_behaviour(command_behavior)
 
-
         # Set initial state after setup
-        await self.set_state(BotState.IDLE, "")
+        # await self.set_state(BotState.IDLE, "")
 
     # Add a new heartbeat behavior
     class HeartbeatBehavior(CyclicBehaviour):
         async def run(self):
             if self.agent.state:  # Only send heartbeat if we have a state
+
                 await self.agent.notify_state_change(
                     ""
                 )  # Send current state as heartbeat
@@ -291,7 +243,7 @@ class AlphaBotAgent(Agent):
                     return
                 command = command.replace("command:", "")
                 # Set state to EXECUTING and notify immediately
-                await self.agent.set_state(BotState.EXECUTING, command)
+                # await self.agent.set_state(BotState.EXECUTING, command)
 
                 # Process the command
                 try:
@@ -300,7 +252,7 @@ class AlphaBotAgent(Agent):
                     logger.error(e)
 
                 # Set state back to IDLE after processing
-                await self.agent.set_state(BotState.IDLE, "")
+                # await self.agent.set_state(BotState.IDLE, "")
 
                 # Send a confirmation response
                 reply = Message(to=str(msg.sender))

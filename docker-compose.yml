@@ -129,6 +129,7 @@ services:
       - xmpp_network
     extra_hosts:
       - "mosquitto:172.20.0.7"
+      - "prosody:${PROSODY_IP}"
 
 networks:
   xmpp_network:

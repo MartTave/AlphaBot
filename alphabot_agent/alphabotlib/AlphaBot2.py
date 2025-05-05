@@ -7,9 +7,12 @@ import cv2
 import os
 from alphabot_agent.alphabotlib.TRSensors import TRSensor
 import numpy as np
+import asyncio
+import aiohttp
 from functools import reduce
 import logging
 import math
+from enum import Enum
 from alphabot_agent.alphabotlib.Pathfinding import Pathfinding
 
 logger = logging.getLogger(__name__)
@@ -46,7 +49,19 @@ class AlphaBot2(object):
 
         self.labyrinth = None
 
+        self.api_url = "http://prosody:3000/api/messages"
+        self.api_token = os.environ.get("API_TOKEN", "your_secret_token")
+        self.session = None
 
+        # Create HTTP session with keepalive
+        timeout = aiohttp.ClientTimeout(total=None)  # No timeout
+        self.session = aiohttp.ClientSession(
+            timeout=timeout,
+            headers={
+                "Connection": "keep-alive",
+                "Keep-Alive": "timeout=60, max=1000",
+            },
+        )
 
         self.TR = TRSensor()
 
@@ -880,14 +895,58 @@ class AlphaBot2(object):
         json_commands = pathfinder.get_json_from_path(curr_path, robot[1])
 
         for i in json_commands["commands"][:3]:
-            logger.info(i["command"])
-            if i["command"] == "rotate":
+            # logger.info(i["command"])
+            current_command = i["command"]
+            # notify state change
+            # when executing command
+            self.notify_state_change(BotState.EXECUTING, current_command)
+
+            if current_command == "rotate":
                 rotation = int(float(i["args"][0]))
                 self.turn(rotation)
-            elif i["command"] == "forward":
+            elif current_command == "forward":
                 frwrd = int(float(i["args"][0]))
                 self.safeForward(200 * frwrd, blocking=True)
 
+            # notify state change
+            # when going back to idle
+            self.notify_state_change(BotState.IDLE, "")
+
+    def notify_state_change(self, state, label):
+        if self.session:
+            try:
+                state_update = {
+                    "agent_jid": self.botN,
+                    "type": "state_update",
+                    "state": state,
+                    "label": label,
+                    "timestamp": int(asyncio.get_event_loop().time()),
+                }
+                print(state_update)
+
+                # Use keepalive connection
+                with self.session.post(
+                    self.api_url,
+                    json=state_update,
+                    headers={
+                        "Authorization": f"Bearer {self.api_token}",
+                        "Connection": "keep-alive",  # Add keepalive header
+                    },
+                    timeout=aiohttp.ClientTimeout(total=None),  # No timeout
+                ) as response:
+                    if response.status == 200:
+                        logger.info(f"State update sent: {state}")
+                    else:
+                        logger.error(
+                            f"Failed to send state update. Status: {response.status}"
+                        )
+
+            except Exception as e:
+                logger.error(f"Failed to send state update: {e}")
+
+    class BotState(Enum):
+        IDLE = "idle"
+        EXECUTING = "executing"
 
 if __name__ == "__main__":
     Ab = AlphaBot2()

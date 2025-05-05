@@ -58,7 +58,10 @@ class Pathfinding:
 
     def get_path_from_maze(self, maze: list[list[str]], start: int, stop: int) -> list[int]:
         self.__arr2graph(maze)
-        return self.__find_path(stop, [self.nodes[start]])
+        try:
+            return self.__find_path(stop, [self.nodes[start]])
+        except:
+            return []
 
     def draw_on_pic(self, path):
         board_size = (11,3)

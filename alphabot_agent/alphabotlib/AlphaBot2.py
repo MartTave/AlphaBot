@@ -5,6 +5,7 @@ import time
 from numpy._core.shape_base import block
 import cv2
 import os
+import requests
 from alphabot_agent.alphabotlib.TRSensors import TRSensor
 import numpy as np
 import asyncio
@@ -35,6 +36,7 @@ class AlphaBot2(object):
         if botn is None:
             raise Exception("Could not get robot name through env variable")
 
+        self.xmpp_username = botn
         self.botN = botn.split("-")[-1]
 
         self.otherN = "1" if self.botN == "2" else "2"
@@ -64,6 +66,10 @@ class AlphaBot2(object):
         )
 
         self.TR = TRSensor()
+
+    class BotState(Enum):
+        IDLE = "idle"
+        EXECUTING = "executing"
 
     @property
     def config(self):
@@ -899,7 +905,7 @@ class AlphaBot2(object):
             current_command = i["command"]
             # notify state change
             # when executing command
-            self.notify_state_change(BotState.EXECUTING, current_command)
+            self.notify_state_change(self.BotState.EXECUTING, current_command)
 
             if current_command == "rotate":
                 rotation = int(float(i["args"][0]))
@@ -910,43 +916,39 @@ class AlphaBot2(object):
 
             # notify state change
             # when going back to idle
-            self.notify_state_change(BotState.IDLE, "")
+            self.notify_state_change(self.BotState.IDLE, "")
 
     def notify_state_change(self, state, label):
         if self.session:
             try:
                 state_update = {
-                    "agent_jid": self.botN,
+                    "agent_jid": self.xmpp_username,
                     "type": "state_update",
-                    "state": state,
+                    "state": state.value,  # Use the string value of the enum
                     "label": label,
-                    "timestamp": int(asyncio.get_event_loop().time()),
+                    "timestamp": int(time.time()),
                 }
-                print(state_update)
 
-                # Use keepalive connection
-                with self.session.post(
-                    self.api_url,
-                    json=state_update,
-                    headers={
-                        "Authorization": f"Bearer {self.api_token}",
-                        "Connection": "keep-alive",  # Add keepalive header
-                    },
-                    timeout=aiohttp.ClientTimeout(total=None),  # No timeout
-                ) as response:
-                    if response.status == 200:
-                        logger.info(f"State update sent: {state}")
+                try:
+                    response = requests.post(
+                        self.api_url,
+                        json=state_update,
+                        headers={
+                            "Authorization": f"Bearer {self.api_token}",
+                            "Connection": "keep-alive",
+                        },
+                        timeout=None,  # No timeout
+                    )
+
+                    if response.status_code == 200:
+                        logger.info(f"State update sent: {state.value}")
                     else:
-                        logger.error(
-                            f"Failed to send state update. Status: {response.status}"
-                        )
+                        logger.error(f"Failed to send state update. Status: {response.status_code}")
+                except Exception as e:
+                    logger.error(f"Failed to send request: {e}")
 
             except Exception as e:
                 logger.error(f"Failed to send state update: {e}")
-
-    class BotState(Enum):
-        IDLE = "idle"
-        EXECUTING = "executing"
 
 if __name__ == "__main__":
     Ab = AlphaBot2()

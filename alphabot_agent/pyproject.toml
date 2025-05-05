@@ -8,6 +8,7 @@ dependencies = [
     "numpy>=2.2.5",
     "opencv-python>=4.11.0.86",
     "pillow>=11.2.1",
+    "requests",
     "rpi-gpio>=0.7.1",
     "rpi-ws281x>=5.0.0",
     "spade==3.3.3",

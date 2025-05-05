@@ -2,7 +2,6 @@ import json
 import threading
 import RPi.GPIO as GPIO
 import time
-
 from numpy._core.shape_base import block
 import cv2
 import os
@@ -16,6 +15,7 @@ from alphabot_agent.alphabotlib.Pathfinding import Pathfinding
 logger = logging.getLogger(__name__)
 
 
+
 def flatten(li):
     return reduce(
         lambda x, y: [*x, y] if not isinstance(y, list) else x + flatten(y),
@@ -26,23 +26,66 @@ def flatten(li):
 
 class AlphaBot2(object):
     def __init__(self, ain1=12, ain2=13, ena=6, bin1=20, bin2=21, enb=26):
+
+        botn = os.environ.get("XMPP_USERNAME")
+
+        if botn is None:
+            raise Exception("Could not get robot name through env variable")
+
+        self.botN = botn.split("-")[-1]
+
+        self.otherN = "1" if self.botN == "2" else "2"
+
+        self.configPath = "./alphabot_agent/config.json"
+
+        self.loadConfig()
+
         self.GPIOSetup(ain1, ain2, bin1, bin2, ena, enb)
 
+        self.updateFromConfig()
 
         self.labyrinth = None
 
-        self.forwardCorrection = -2
 
-        self.turn_speed = 15
-        self.turn_braking_time = 13
-
-        self.forward_speed = 30
-        self.forward_braking_time = 50
-
-        self.forwardEquation = lambda x: 2.916192 * x + 130.98477
-        self.turnEquation = lambda x: 4.792480 * x + 118.629884
 
         self.TR = TRSensor()
+
+    @property
+    def config(self):
+        return self.config_file[self.botN]
+
+    @property
+    def otherConfig(self):
+        return self.config_file[self.otherN]
+
+    def loadConfig(self):
+        with open(self.configPath) as file:
+            self.config_file = json.load(file)
+
+    def updateFromConfig(self):
+        self.loadConfig()
+        self.robot_aruco_id = self.config.get("arucoId", -1)
+        self.target_aruco_id = self.config.get("targetArucoId", -1)
+
+        self.other_aruco_id = self.otherConfig.get("arucoId", -1)
+        self.other_target_aruco_id = self.otherConfig.get("targetArucoId", -1)
+
+        self.forwardCorrection = self.config.get("forwardCorrection", 0)
+
+        self.turn_speed = self.config.get("turnSpeed", 15)
+        self.turn_braking_time = self.config.get("turnBrakingTime", 13)
+
+        self.forward_speed = self.config.get("forwardSpeed", 30)
+        self.forward_braking_time = self.config.get("forwardBrakingTime", 50)
+
+        self.forwardEquation = lambda x: self.config.get("forwardA", 2.916) * x + self.config.get("forwardB", 130.984)
+
+        self.turnEquation = lambda x:self.config.get("turnA", 4.792) * x + self.config.get("turnB", 118.63)
+
+    def saveConfig(self):
+
+        with open(self.configPath) as file:
+            file.write(json.dumps(self.config_file))
 
     def GPIOSetup(self, ain1, ain2, bin1, bin2, ena, enb):
         self.AIN1 = ain1
@@ -144,6 +187,8 @@ class AlphaBot2(object):
         whiteTreshold = 850
 
         self.turn_speed = speed
+        self.config["turnSpeed"] = speed
+
 
         angles = [90, 180, 270, 360, 450, 540]
         measurements = []
@@ -219,6 +264,10 @@ class AlphaBot2(object):
         error /= len(angles)
         logger.info("Error is : " + str(error))
 
+        self.config["turnA"] = a
+        self.config["turnB"] = b
+        self.saveConfig()
+
         self.turnEquation = lambda x: a * x + b
 
     def waitForJoystickCenter(self):
@@ -234,7 +283,11 @@ class AlphaBot2(object):
         lineTreshold = 100
         whiteTreshold = 900
 
+
         self.forward_speed = speed
+
+        self.config["forwardSpeed"] = speed
+
 
         papers = [[30, 40, 70, 120], [100, 150]]
 
@@ -315,6 +368,11 @@ class AlphaBot2(object):
         error /= len(flattened)
         logger.info("Error is : " + str(error))
 
+        self.config["forwardA"] = a
+        self.config["forwardB"] = b
+
+        self.saveConfig()
+
         self.forwardEquation = lambda x: a * x + b
 
     def calibrateForwardCorrection(self):
@@ -329,6 +387,8 @@ class AlphaBot2(object):
                         time.sleep(0.01)
                     self.beep_off()
                     if n == self.DOWN:
+                        self.config["forwardCorrection"] = self.forwardCorrection
+                        self.saveConfig()
                         return
                     if n == self.RIGHT:
                         self.forwardCorrection -= 0.2
@@ -656,95 +716,144 @@ class AlphaBot2(object):
         return n_inter >= 2
 
 
-    def find_labyrinth(self, img, grid_top, grid_down, grid_left, grid_right, grid_width, grid_height):
-        if self.labyrinth is None:
-            section_width = (grid_right - grid_left) / grid_width
-            section_height = (grid_down - grid_top) / grid_height
-            lines = self._getLines(img, 1, np.pi / 360, 50, 80, 10, 10)
+    def processImage(self, img, quality):
+        rotation = -3.6
+        factor = 1
+        if quality == "full quality":
+            factor = 1
+        elif quality == "low quality":
+            factor = 2.25
 
-            section_tab = []
-            for i in range(grid_width):
-                for j in range(grid_height):
-                    x = int(grid_left + (i + 0.5) * section_width)
-                    y = int(grid_top + (j + 0.5) * section_height)
+        x_pos = [int(152 / factor),int(725 / factor)]
+        y_pos = [int(68 / factor),int(1824 / factor)]
 
-                    l = 'l' if self._check_left(lines, x, y, section_width, section_height) or i == 0 else ''
-                    r = 'r' if self._check_right(lines, x, y, section_width, section_height) or i == grid_width-1 else ''
-                    b = 'b' if self._check_bottom(lines, x, y, section_width, section_height) or j == grid_height-1 else ''
-                    t = 't' if self._check_top(lines, x, y, section_width, section_height) or j == 0 else ''
-                    section = l + r + b + t
-                    section_tab.append(section)
-            logger.info(section_tab)
-            self.labyrinth = np.reshape(section_tab, (grid_width, grid_height)).T
-        return self.labyrinth
+        grid_top = int(45 / factor)
+        grid_down = int(475 / factor)
+        grid_left = int(65 / factor)
+        grid_right = int(1680 / factor)
+
+        grid_width = 11
+        grid_height = 3
 
 
+        cell_width = (grid_right - grid_left) / grid_width
+        cell_height = (grid_down - grid_top) / grid_height
 
-    def where_arucos(self, img, aru_id):
-        # detection of all arucos
-        dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
-        detectorParams = cv2.aruco.DetectorParameters()
-        detector = cv2.aruco.ArucoDetector(dictionary, detectorParams)
-        marker_corners, marker_ids, rejected_candidates = detector.detectMarkers(img)
+        # Crop and rotate the image
+        cropped = self.cropImage(img, rotation, x_pos, y_pos)
 
-        # looking for asked aruco
-        pos = np.where(marker_ids.flatten() == [aru_id])
+        cv2.imwrite("frame.png", cropped)
 
-        # if no asked aruco
-        if len(pos[0]) == 0:
-            print(f"Didn't find the aruco {aru_id} in the picture.")
-            return (-1,-1,-1)
+        def posToGrid(pos):
+            grid_x = int((pos[0]-grid_left)/cell_width)
+            grid_y = int((pos[1]-grid_top)/cell_height)
+            n = grid_x + grid_width * grid_y
+            return n
 
-        # else
-        # boar method to get the center (averaging the x,y coordinates of the corners)
-        moy_x = 0
-        moy_y = 0
-        for i in marker_corners[pos[0][0]][0]:
-            moy_x += i[0]
-            moy_y += i[1]
+        def find_labyrinth(img):
+            if self.labyrinth is None:
+                section_width = (grid_right - grid_left) / grid_width
+                section_height = (grid_down - grid_top) / grid_height
+                lines = self._getLines(img, 1, np.pi / 360, 50, 80, 10, 10)
 
-        moy_x /= 4
-        moy_y /= 4
+                section_tab = []
+                for i in range(grid_width):
+                    for j in range(grid_height):
+                        x = int(grid_left + (i + 0.5) * section_width)
+                        y = int(grid_top + (j + 0.5) * section_height)
 
-        # placing the points
-        marker_length = 1.0
-        obj_points = np.array([
-            [-marker_length/2,  marker_length/2, 0],  # Top-left
-            [ marker_length/2,  marker_length/2, 0],  # Top-right
-            [ marker_length/2, -marker_length/2, 0],  # Bottom-right
-            [-marker_length/2, -marker_length/2, 0]   # Bottom-left
-        ], dtype=np.float32)
+                        l = 'l' if self._check_left(lines, x, y, section_width, section_height) or i == 0 else ''
+                        r = 'r' if self._check_right(lines, x, y, section_width, section_height) or i == grid_width-1 else ''
+                        b = 'b' if self._check_bottom(lines, x, y, section_width, section_height) or j == grid_height-1 else ''
+                        t = 't' if self._check_top(lines, x, y, section_width, section_height) or j == 0 else ''
+                        section = l + r + b + t
+                        section_tab.append(section)
+                logger.info(section_tab)
+                self.labyrinth = np.reshape(section_tab, (grid_width, grid_height)).T
+            return self.labyrinth
+
+        def where_aruco(img, aruco_id):
+
+            # detection of all arucos
+            dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+            detectorParams = cv2.aruco.DetectorParameters()
+            detector = cv2.aruco.ArucoDetector(dictionary, detectorParams)
+            marker_corners, marker_ids, rejected_candidates = detector.detectMarkers(img)
+
+            if marker_ids and len(marker_ids) == 0:
+                logger.warning("No arcuo marker found in image")
+                return (-1, -1, -1)
+
+            # looking for asked aruco
+            pos = np.where(marker_ids.flatten() == [aruco_id])
+
+            # if no asked aruco
+            if len(pos[0]) == 0:
+                logger.error(f"Didn't find the aruco {aruco_id} in the picture.")
+                return (-1,-1,-1)
+
+            # else
+            # boar method to get the center (averaging the x,y coordinates of the corners)
+            moy_x = 0
+            moy_y = 0
+            for i in marker_corners[pos[0][0]][0]:
+                moy_x += i[0]
+                moy_y += i[1]
+
+            moy_x /= 4
+            moy_y /= 4
+
+            cell = posToGrid([moy_x, moy_y])
+
+            # placing the points
+            marker_length = 1.0
+            obj_points = np.array([
+                [-marker_length/2,  marker_length/2, 0],  # Top-left
+                [ marker_length/2,  marker_length/2, 0],  # Top-right
+                [ marker_length/2, -marker_length/2, 0],  # Bottom-right
+                [-marker_length/2, -marker_length/2, 0]   # Bottom-left
+            ], dtype=np.float32)
 
 
-        # Camera matrix and distortion coefficients (a regler une fois la camera calibrée)
-        camera_matrix = np.array([[1, 0, 1], [0, 1, 1], [0, 0, 1]])
-        dist_coeffs = np.zeros((4, 1))
+            # Camera matrix and distortion coefficients (a regler une fois la camera calibrée)
+            camera_matrix = np.array([[1, 0, 1], [0, 1, 1], [0, 0, 1]])
+            dist_coeffs = np.zeros((4, 1))
 
-        # Solve for pose
-        success, rvec, tvec = cv2.solvePnP(obj_points, marker_corners[0][0], camera_matrix, dist_coeffs)
+            # Solve for pose
+            success, rvec, tvec = cv2.solvePnP(obj_points, marker_corners[0][0], camera_matrix, dist_coeffs)
 
-        # Convert rotation vector to rotation matrix
-        rotation_matrix, _ = cv2.Rodrigues(rvec)
+            # Convert rotation vector to rotation matrix
+            rotation_matrix, _ = cv2.Rodrigues(rvec)
 
-        # Extract Euler angles (ZYX convention)
-        sy = np.sqrt(rotation_matrix[0,0] * rotation_matrix[0,0] + rotation_matrix[1,0] * rotation_matrix[1,0])
-        singular = sy < 1e-6
+            # Extract Euler angles (ZYX convention)
+            sy = np.sqrt(rotation_matrix[0,0] * rotation_matrix[0,0] + rotation_matrix[1,0] * rotation_matrix[1,0])
+            singular = sy < 1e-6
 
-        if not singular:
-            yaw = np.arctan2(rotation_matrix[1,0], rotation_matrix[0,0])
-        else:
-            yaw = np.arctan2(-rotation_matrix[0,1], rotation_matrix[1,1])
+            if not singular:
+                yaw = np.arctan2(rotation_matrix[1,0], rotation_matrix[0,0])
+            else:
+                yaw = np.arctan2(-rotation_matrix[0,1], rotation_matrix[1,1])
 
-        yaw_deg = np.degrees(yaw)
-
-
-        return moy_x,moy_y,yaw_deg
+            yaw_deg = np.degrees(yaw)
 
 
-    def posToGrid(self, pos,grid_top,grid_left,section_width,section_height):
-        grid_x = int((pos[0]-grid_left)/section_width)
-        grid_y = int((pos[1]-grid_top)/section_height)
-        return grid_x, grid_y
+            return cell, yaw_deg
+
+        def detect_targets(img):
+
+            robot = where_aruco(img, self.robot_aruco_id)
+            target = where_aruco(img, self.target_aruco_id)
+
+            other_robot = where_aruco(img, self.other_aruco_id)
+            other_target = where_aruco(img, self.other_target_aruco_id)
+
+            return robot, target, other_robot, other_target
+
+        labyrinth = find_labyrinth(cropped)
+        robot, target, other_robot, other_target = detect_targets(cropped)
+
+        self.runMaze(robot, target, other_robot, other_target)
+
 
 
     def posToSubGrid(self, pos,grid_top,grid_left,section_width,section_height):
@@ -755,39 +864,26 @@ class AlphaBot2(object):
         return grid_x, grid_y
 
 
-    def runMaze(self, start_r1, stop_r1, angle_r1 = 0, start_r2 = 0, stop_r2 = 4, angle_r2 = 0):
+    def runMaze(self, robot, target, other_robot, other_target):
         pathfinder = Pathfinding()
         if self.labyrinth is None:
             logger.error("Can't run maze wihtout loading it first !")
             return
-        path_robo1 = pathfinder.get_path_from_maze(self.labyrinth, start_r1, stop_r1)
-        path_robo2 = pathfinder.get_path_from_maze(self.labyrinth, start_r2, stop_r2)
+        path_robo1 = pathfinder.get_path_from_maze(self.labyrinth, robot[0], target[0])
+        path_robo2 = pathfinder.get_path_from_maze(self.labyrinth, other_robot[0], other_target[0])
 
-        botn = os.environ.get("XMPP_USERNAME")
 
-        if botn is None:
-            raise Exception("Could not get robot name through env variable")
-
-        n = int(botn.split("-")[-1])
-
-        print("Robots crossing at:")
         pathfinder.problem_detect(path_robo1, path_robo2)
-        print("to be checked later")
 
-        json_commands = {}
-        if n == 1:
-            json_commands = pathfinder.get_json_from_maze(self.labyrinth, start_r1, stop_r1, False, angle_r1)
-        else:
-            json_commands = pathfinder.get_json_from_maze(self.labyrinth, start_r2, stop_r2, False, angle_r2)
-
-        print(f"Json commands : {json_commands}")
+        json_commands = pathfinder.get_json_from_maze(self.labyrinth, robot[0], target[0], False, robot[1])
 
         for i in json_commands["commands"][:3]:
+            logger.info(i["command"])
             if i["command"] == "rotate":
-                rotation = int(i["args"][0])
+                rotation = int(float(i["args"][0]))
                 self.turn(rotation)
             elif i["command"] == "forward":
-                frwrd = int(i["args"][0])
+                frwrd = int(float(i["args"][0]))
                 self.safeForward(200 * frwrd, blocking=True)
 
 

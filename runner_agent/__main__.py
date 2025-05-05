@@ -120,62 +120,30 @@ async def startCalibration():
 async def main(target, command_file="/app/src/commands/command.json"):
     os.makedirs("received_photos", exist_ok=True)
 
-    # target = f"alpha-pi-4b-agent-{target}@prosody"
+    target = f"alpha-pi-4b-agent-{target}@prosody"
 
-    # with open(command_file, "r") as file:
-    #     data = json.load(file)
+    with open(command_file, "r") as file:
+        data = json.load(file)
 
-    # commands = data["commands"]
+    commands = data["commands"]
 
-    # try:
-    #     alphabot_controller = await run_alphabot_controller(target, commands)
-
-    #     logger.info("Both agents running. Press Ctrl+C to stop.")
-
-    #     while any(
-    #         behavior.is_running for behavior in alphabot_controller.behaviours
-    #     ):
-    #         await asyncio.sleep(1)
-
-    #     logger.info("Alphabot controller has completed all instructions.")
-
-    # except KeyboardInterrupt:
-    #     logger.info("Received keyboard interrupt. Shutting down...")
-    # finally:
-    #     if "alphabot_controller" in locals():
-    #         await alphabot_controller.stop()
-    #     logger.info("All agents stopped.")
-    #
     try:
-        xmpp_jid = XMPP_JID
-        xmpp_password = os.getenv("XMPP_PASSWORD")
+        alphabot_controller = await run_alphabot_controller(target, commands)
 
-        # Create the agent instance
-        image_tester = ImageTester(xmpp_jid, xmpp_password)
-        
-        # Start the agent
-        await image_tester.start(auto_register=True)
-        logger.info("Image tester agent started successfully")
-        
-        # After agent is started, add the behavior
-        behaviour = image_tester.SendMessageBehavior()
-        image_tester.add_behaviour(behaviour)
-        
-        # Wait for the behavior to complete
-        while behaviour.is_running:
-            await asyncio.sleep(0.5)
-            
-        logger.info("Image test behavior completed")
-        
-        # Keep agent running until interrupted
-        while image_tester.is_alive():
+        logger.info("Both agents running. Press Ctrl+C to stop.")
+
+        while any(
+            behavior.is_running for behavior in alphabot_controller.behaviours
+        ):
             await asyncio.sleep(1)
-            
+
+        logger.info("Alphabot controller has completed all instructions.")
+
     except KeyboardInterrupt:
         logger.info("Received keyboard interrupt. Shutting down...")
     finally:
-        if "image_tester" in locals():
-            await image_tester.stop()
+        if "alphabot_controller" in locals():
+            await alphabot_controller.stop()
         logger.info("All agents stopped.")
 
 

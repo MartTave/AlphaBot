@@ -1,0 +1,28 @@
+{
+  "1": {
+    "arucoId": 12,
+    "targetArucoId": 15,
+    "forwardCorrection": -2,
+    "turnSpeed": 15,
+    "turnBrakingTime": 13,
+    "forwardSpeed": 30,
+    "forwardBrakingTime": 50,
+    "forwardA": 2.916,
+    "forwardB": 130.984,
+    "turnA": 4.792,
+    "turnB": 118.63
+  },
+  "2": {
+    "arucoId": 12,
+    "targetArucoId": 15,
+    "forwardCorrection": -2,
+    "turnSpeed": 15,
+    "turnBrakingTime": 13,
+    "forwardSpeed": 30,
+    "forwardBrakingTime": 50,
+    "forwardA": 2.916,
+    "forwardB": 130.984,
+    "turnA": 4.792,
+    "turnB": 118.63
+  }
+}

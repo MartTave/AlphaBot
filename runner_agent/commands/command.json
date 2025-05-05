@@ -1,7 +1,7 @@
 {
   "commands": [
     {
-      "command": "calibrate_forward_correction",
+      "command": "solve",
       "args": []
     }
   ]

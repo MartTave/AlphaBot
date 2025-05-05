@@ -177,12 +177,10 @@ class Pathfinding:
                 init_rota = init_rota - 360 if init_rota > 180 else init_rota
                 # Setting up known rotation when first launching the pathfinding
                 if init_rota != 0: inst.append(f"rotate:{init_rota}")
-                print(f"Rotation to do: {init_rota}")
-                print(f"From looking towards {towards}, to go to {ori_target}")
                 inst.append("forward:1")
             else:
                 if prev == orientation:
-                    inst[-1] = "forward:" + str(int(inst[-1].split(":")[-1]) + 1)
+                    inst.append("forward:1")
                 else:
                     if prev + orientation in ["rl", "lr", "ud", "du"]:
                         inst.append("rotate:180")

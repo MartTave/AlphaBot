@@ -108,7 +108,7 @@ class AlphaBot2(object):
 
     def saveConfig(self):
 
-        with open(self.configPath) as file:
+        with open(self.configPath, "w") as file:
             file.write(json.dumps(self.config_file))
 
     def GPIOSetup(self, ain1, ain2, bin1, bin2, ena, enb):

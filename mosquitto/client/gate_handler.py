@@ -2,6 +2,7 @@ import asyncio
 import functools
 import sys
 import logging
+import json
 from datetime import datetime
 import time
 
@@ -27,6 +28,11 @@ import paho.mqtt.client as mqtt
 from bleak import BleakClient, BleakScanner
 from bleak.exc import BleakError
 
+# Import SPADE components for XMPP
+from spade.agent import Agent
+from spade.behaviour import CyclicBehaviour, OneShotBehaviour
+from spade.message import Message
+
 
 class gate:
     # These should be fixed for every gate. If it doesn't work, do "a ble-scan -d [address of the device]" to get the real ones
@@ -41,6 +47,7 @@ class gate:
         self.connected = False
         self.last_reconnect_attempt = 0
         self.reconnect_interval = 5  # seconds between reconnection attempts
+        self.reconnect_attempts = 0  # Track number of reconnect attempts
 
     async def connect(self):
         try:
@@ -81,7 +88,8 @@ class gate:
         now = time.time()
         if not self.connected and (now - self.last_reconnect_attempt) > self.reconnect_interval:
             self.last_reconnect_attempt = now
-            logger.info(f"Attempting to reconnect to {self.name}...")
+            self.reconnect_attempts += 1
+            logger.info(f"Attempting to reconnect to {self.name} (attempt #{self.reconnect_attempts})...")
             return await self.connect()
         return self.connected
 
@@ -282,9 +290,9 @@ class MQTTGateHandler:
             self.gate_instances[gate_name] = gate_instance
             logger.info(f"Created gate instance for {gate_name}")
         
-        # First connection attempt for all gates
-        await self.connect_all_gates()
-
+        # Just initialize the gate instances without connecting
+        logger.info("Gate instances created but not connecting yet - waiting for scan command")
+        
     async def connect_all_gates(self):
         """Attempt to connect to all gates"""
         connected_count = 0
@@ -421,9 +429,326 @@ class MQTTGateHandler:
             self.mqtt_client.disconnect()
 
 
+class GateHandlerAgent(Agent):
+    """
+    XMPP Agent that handles gate operations and responds to XMPP messages.
+    Integrates with MQTTGateHandler for BLE gate functionality.
+    """
+    def __init__(self, jid, password, mqtt_broker_address="mosquitto", mqtt_broker_port=1883):
+        super().__init__(jid, password)
+        # Create the MQTT gate handler as a component
+        self.gate_handler = MQTTGateHandler(broker_address=mqtt_broker_address, broker_port=mqtt_broker_port)
+        self.mqtt_initialized = False
+        
+        # Log XMPP connection details for debugging
+        logger.info(f"Initializing GateHandlerAgent with JID: {jid}")
+
+    async def setup(self):
+        """Set up the agent behaviors when it starts"""
+        logger.info(f"XMPP Gate Handler Agent {str(self.jid)} starting...")
+        # Add the behavior to listen for XMPP messages
+        self.add_behaviour(self.ListenForCommandsBehavior())
+        
+        # Start the gate handler initialization in the background
+        self.add_behaviour(self.InitializeGateHandlerBehavior())
+
+    class InitializeGateHandlerBehavior(OneShotBehaviour):
+        """Behavior to initialize the MQTT gate handler"""
+        async def run(self):
+            logger.info("Initializing MQTT Gate Handler...")
+            # Connect to MQTT broker
+            self.agent.gate_handler.mqtt_client.connect(
+                self.agent.gate_handler.broker_address, 
+                self.agent.gate_handler.broker_port, 
+                60
+            )
+            # Start MQTT loop in a non-blocking way
+            self.agent.gate_handler.mqtt_client.loop_start()
+            
+            # Setup BLE gates
+            logger.info("Setting up BLE gates...")
+            await self.agent.gate_handler.setup_gates()
+            
+            # Mark as initialized
+            self.agent.mqtt_initialized = True
+            
+            # Add the cyclic behavior to check gate connections
+            gate_monitor = self.agent.MonitorGatesBehavior()
+            self.agent.add_behaviour(gate_monitor)
+            
+            logger.info("Gate handler initialization complete")
+
+    class ListenForCommandsBehavior(CyclicBehaviour):
+        """Behavior to listen for incoming XMPP commands"""
+        async def run(self):
+            msg = await self.receive(timeout=10)  # Wait for messages
+            
+            if msg:
+                sender = str(msg.sender)
+                command = msg.body.strip().lower()
+                logger.info(f"Received command '{command}' from {sender}")
+                
+                if command == "scan":
+                    # Add behavior to initiate gate scanning
+                    logger.info(f"Received 'scan' command from {sender}, initiating gate scanning")
+                    self.agent.add_behaviour(
+                        self.agent.ScanGatesBehavior(requester_jid=sender)
+                    )
+                elif command == "gate_status":
+                    # Add behavior to send gate status
+                    self.agent.add_behaviour(
+                        self.agent.SendGateStatusBehavior(requester_jid=sender)
+                    )
+                elif command == "reset_gates":
+                    # Reset the gates and send confirmation
+                    self.agent.gate_handler.reset_gate_status()
+                    response = Message(to=sender)
+                    response.set_metadata("performative", "inform")
+                    response.body = json.dumps({"status": "Gates reset successfully"})
+                    await self.send(response)
+
+    class ScanGatesBehavior(OneShotBehaviour):
+        """
+        Behavior to scan for BLE gates with limited reconnection attempts.
+        Will try to connect to gates a maximum of 3 times before giving up.
+        """
+        def __init__(self, requester_jid):
+            super().__init__()
+            self.requester_jid = requester_jid
+            self.max_reconnect_attempts = 3
+            
+        async def run(self):
+            logger.info(f"Initiating gate scanning for {self.requester_jid}...")
+            
+            # Reset reconnect attempts counter for each gate
+            for name, gate_inst in self.agent.gate_handler.gate_instances.items():
+                gate_inst.reconnect_attempts = 0
+                
+            # First attempt to connect to all gates
+            connected = await self.scan_gates_with_retry()
+            
+            # Prepare response message
+            response = Message(to=self.requester_jid)
+            response.set_metadata("performative", "inform")
+            
+            # Get gate connection status
+            gate_status = {}
+            for name, gate_inst in self.agent.gate_handler.gate_instances.items():
+                gate_status[name] = {
+                    "connected": gate_inst.is_connected(),
+                    "address": gate_inst.address,
+                    "reconnect_attempts": getattr(gate_inst, 'reconnect_attempts', 0)
+                }
+            
+            # Create response
+            result = {
+                "success": connected,
+                "gates_connected": self.agent.gate_handler.connected_gate_count,
+                "total_gates": len(self.agent.gate_handler.gate_instances),
+                "scan_complete": True,
+                "gate_status": gate_status
+            }
+            
+            response.body = json.dumps(result)
+            await self.send(response)
+            logger.info(f"Gate scanning results sent to {self.requester_jid}")
+            
+        async def scan_gates_with_retry(self):
+            """
+            Attempt to scan and connect to all gates with limited retries.
+            Returns True if all gates connected, False otherwise.
+            """
+            # First attempt
+            logger.info("Starting initial gate scan (attempt 1 of 3)...")
+            connected_gates = []
+            
+            # Try to connect to each gate
+            for name, gate_inst in self.agent.gate_handler.gate_instances.items():
+                if not gate_inst.is_connected():
+                    gate_inst.reconnect_attempts = 1  # Count first attempt
+                    if await gate_inst.connect():
+                        # If connected, start notifications
+                        callback = functools.partial(self.agent.gate_handler.sensor_callback, name)
+                        await gate_inst.start_listening_sensor(callback)
+                        connected_gates.append(name)
+                        logger.info(f"✅ Gate {name} connected on attempt 1")
+                    else:
+                        logger.warning(f"❌ Gate {name} failed on connection attempt 1")
+                else:
+                    connected_gates.append(name)
+                    logger.info(f"✅ Gate {name} already connected")
+            
+            # If not all gates connected, try a second attempt
+            if len(connected_gates) < len(self.agent.gate_handler.gate_instances):
+                logger.info("Some gates failed to connect. Starting second attempt (attempt 2 of 3)...")
+                
+                # Wait briefly before retry
+                await asyncio.sleep(2)
+                
+                # Try to connect to each gate that failed
+                for name, gate_inst in self.agent.gate_handler.gate_instances.items():
+                    if name not in connected_gates and gate_inst.reconnect_attempts < self.max_reconnect_attempts:
+                        gate_inst.reconnect_attempts = 2  # Count second attempt
+                        if await gate_inst.connect():
+                            # If connected, start notifications
+                            callback = functools.partial(self.agent.gate_handler.sensor_callback, name)
+                            await gate_inst.start_listening_sensor(callback)
+                            connected_gates.append(name)
+                            logger.info(f"✅ Gate {name} connected on attempt 2")
+                        else:
+                            logger.warning(f"❌ Gate {name} failed on connection attempt 2")
+            
+            # If still not all gates connected, try a third attempt
+            if len(connected_gates) < len(self.agent.gate_handler.gate_instances):
+                logger.info("Some gates still failed to connect. Starting final attempt (attempt 3 of 3)...")
+                
+                # Wait a bit longer before final retry
+                await asyncio.sleep(3)
+                
+                # Try to connect to each gate that failed
+                for name, gate_inst in self.agent.gate_handler.gate_instances.items():
+                    if name not in connected_gates and gate_inst.reconnect_attempts < self.max_reconnect_attempts:
+                        gate_inst.reconnect_attempts = 3  # Count third attempt
+                        if await gate_inst.connect():
+                            # If connected, start notifications
+                            callback = functools.partial(self.agent.gate_handler.sensor_callback, name)
+                            await gate_inst.start_listening_sensor(callback)
+                            connected_gates.append(name)
+                            logger.info(f"✅ Gate {name} connected on final attempt")
+                        else:
+                            logger.warning(f"❌ Gate {name} failed on final connection attempt")
+            
+            # Update connection count
+            self.agent.gate_handler.connected_gate_count = len(connected_gates)
+            self.agent.gate_handler.update_system_status()
+            
+            # If all gates connected, consider it a success
+            all_connected = len(connected_gates) == len(self.agent.gate_handler.gate_instances)
+            
+            if all_connected:
+                logger.info("✅ All gates successfully connected!")
+            else:
+                logger.warning(f"⚠️ Not all gates could be connected. Connected {len(connected_gates)} of {len(self.agent.gate_handler.gate_instances)}")
+            
+            return all_connected
+
+    class SendGateStatusBehavior(OneShotBehaviour):
+        """Behavior to send current gate status"""
+        def __init__(self, requester_jid):
+            super().__init__()
+            self.requester_jid = requester_jid
+            
+        async def run(self):
+            logger.info(f"Sending gate status to {self.requester_jid}...")
+            
+            # Prepare response message
+            response = Message(to=self.requester_jid)
+            response.set_metadata("performative", "inform")
+            
+            # Gather status information
+            status = {
+                "system_active": self.agent.gate_handler.system_active,
+                "connected_gates": self.agent.gate_handler.connected_gate_count,
+                "total_gates": len(self.agent.gate_handler.gate_instances),
+                "gates": {},
+                "race_status": {
+                    "first_starting_gate": self.agent.gate_handler.first_starting_gate,
+                    "second_starting_gate": self.agent.gate_handler.second_starting_gate,
+                    "first_ending_gate": self.agent.gate_handler.first_ending_gate,
+                    "passed_gates": self.agent.gate_handler.passed_gates
+                }
+            }
+            
+            # Add individual gate status
+            for name, gate_inst in self.agent.gate_handler.gate_instances.items():
+                status["gates"][name] = {
+                    "connected": gate_inst.is_connected(),
+                    "address": gate_inst.address
+                }
+            
+            response.body = json.dumps(status)
+            await self.send(response)
+            logger.info(f"Gate status sent to {self.requester_jid}")
+
+    class MonitorGatesBehavior(CyclicBehaviour):
+        """Behavior to periodically check and reconnect gates"""
+        async def on_start(self):
+            """Initialize variables on behavior start"""
+            self.check_interval = 5  # Check every 5 seconds
+            logger.info("Gate monitoring behavior started")
+            
+        async def run(self):
+            """Run one iteration of gate monitoring"""
+            if self.agent.mqtt_initialized:
+                # Check each gate and respect the reconnection limit
+                for name, gate_inst in self.agent.gate_handler.gate_instances.items():
+                    if not gate_inst.is_connected() and gate_inst.reconnect_attempts < 3:
+                        # Only try to reconnect if we haven't reached the limit
+                        await gate_inst.try_reconnect()
+                        if gate_inst.is_connected():
+                            # If reconnected, restart the sensor notifications
+                            callback = functools.partial(self.agent.gate_handler.sensor_callback, name)
+                            await gate_inst.start_listening_sensor(callback)
+                
+                # Update connection status after reconnection attempts
+                connected_count = sum(1 for g in self.agent.gate_handler.gate_instances.values() if g.is_connected())
+                prev_count = self.agent.gate_handler.connected_gate_count
+                
+                if connected_count != prev_count:
+                    self.agent.gate_handler.connected_gate_count = connected_count
+                    self.agent.gate_handler.update_system_status()
+                    
+            # Wait before next check
+            await asyncio.sleep(self.check_interval)
+
+
 async def run_handler():
-    handler = MQTTGateHandler()
-    await handler.run()
+    """Run the gate handler with both MQTT and XMPP support"""
+    # Get XMPP credentials from environment variables or use defaults
+    xmpp_server = os.environ.get("XMPP_SERVER", "prosody")
+    xmpp_username = os.environ.get("XMPP_USERNAME", "gate_handler")
+    xmpp_password = os.environ.get("XMPP_PASSWORD", "top_secret")
+    
+    jid = f"{xmpp_username}@{xmpp_server}"
+    password = xmpp_password
+    
+    logger.info(f"Starting Gate Handler Agent with JID: {jid}")
+    
+    # Create and start the agent
+    gate_agent = GateHandlerAgent(jid, password)
+    
+    try:
+        # Start agent and wait for it to be ready
+        await gate_agent.start(auto_register=True)
+        
+        if not gate_agent.is_alive():
+            logger.error("Gate handler agent couldn't connect to XMPP server. Check Prosody configuration.")
+            await gate_agent.stop()
+            return
+        
+        logger.info("Gate handler agent connected successfully. Running...")
+        
+        # Keep the program running
+        while gate_agent.is_alive():
+            await asyncio.sleep(1)
+    except Exception as e:
+        logger.error(f"Error in gate handler: {str(e)}")
+        logger.exception(e)
+    except KeyboardInterrupt:
+        logger.info("Shutting down...")
+    finally:
+        # Cleanup
+        if hasattr(gate_agent, 'gate_handler'):
+            for gate_name, gate_instance in gate_agent.gate_handler.gate_instances.items():
+                await gate_instance.stop_listening_sensor()
+                await gate_instance.disconnect()
+            
+            if hasattr(gate_agent.gate_handler, 'mqtt_client'):
+                gate_agent.gate_handler.mqtt_client.loop_stop()
+                gate_agent.gate_handler.mqtt_client.disconnect()
+        
+        await gate_agent.stop()
+        logger.info("Gate handler agent stopped")
 
 
 if __name__ == "__main__":

@@ -732,15 +732,15 @@ class AlphaBot2(object):
 
 
     def processImage(self, img, quality):
-        rotation = -3.6
+        rotation = -1
         factor = 1
         if quality == "full quality":
             factor = 1
         elif quality == "low quality":
             factor = 2.25
 
-        x_pos = [int(152 / factor),int(725 / factor)]
-        y_pos = [int(68 / factor),int(1824 / factor)]
+        x_pos = [int(300 / factor),int(900 / factor)]
+        y_pos = [int(68 / factor),int(1870 / factor)]
 
         grid_top = int(45 / factor)
         grid_down = int(475 / factor)
@@ -757,7 +757,7 @@ class AlphaBot2(object):
         # Crop and rotate the image
         cropped = self.cropImage(img, rotation, x_pos, y_pos)
 
-        cv2.imwrite("frame.png", cropped)
+        cv2.imwrite("./alphabot_agent/frame_aha.png", cropped)
 
         def posToGrid(pos):
             grid_x = int((pos[0]-grid_left)/cell_width)
@@ -795,7 +795,7 @@ class AlphaBot2(object):
             detector = cv2.aruco.ArucoDetector(dictionary, detectorParams)
             marker_corners, marker_ids, rejected_candidates = detector.detectMarkers(img)
 
-            if marker_ids and len(marker_ids) == 0:
+            if marker_ids is not None and len(marker_ids) == 0:
                 logger.warning("No arcuo marker found in image")
                 return (-1, -1, -1)
 
@@ -890,8 +890,9 @@ class AlphaBot2(object):
 
         pathfinder.problem_detect(path_robo1, path_robo2)
 
-        json_commands = pathfinder.get_json_from_maze(self.labyrinth, robot[0], target[0], False, robot[1])
-        print(json_commands)
+        curr_path, other_path = pathfinder.avoid_collision(path_robo1, path_robo2)
+
+        json_commands = pathfinder.get_json_from_path(curr_path, robot[1])
 
         for i in json_commands["commands"][:3]:
             # logger.info(i["command"])

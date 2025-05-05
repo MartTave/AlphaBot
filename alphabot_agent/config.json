@@ -1,7 +1,7 @@
 {
   "1": {
     "arucoId": 12,
-    "targetArucoId": 15,
+    "targetArucoId": 14,
     "forwardCorrection": -2,
     "turnSpeed": 15,
     "turnBrakingTime": 13,
@@ -13,7 +13,7 @@
     "turnB": 118.63
   },
   "2": {
-    "arucoId": 12,
+    "arucoId": 13,
     "targetArucoId": 15,
     "forwardCorrection": -2,
     "turnSpeed": 15,

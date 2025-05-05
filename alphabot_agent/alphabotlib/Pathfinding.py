@@ -63,7 +63,10 @@ class Pathfinding:
         except:
             return []
 
-    def draw_on_pic(self, path, path2):
+    def draw_on_pic(self, path, path2, save_image=False):
+        import base64
+        import io
+
         board_size = (11,3)
         top_left = (65,45)
         bottom_right = (1680,475)
@@ -87,7 +90,14 @@ class Pathfinding:
                     stop = path2[i+1]%board_size[0] * square_size[0] + top_left[0] + square_size[0]/2, int(path2[i+1]/board_size[0]) * square_size[1] + top_left[1] + square_size[1]/2
                     draw.line(start + stop, fill=(200,0,0), width=8)
 
-            im.save("out.png")
+            if save_image:
+                im.save("out.png")
+
+            # Convert to base64
+            buffered = io.BytesIO()
+            im.save(buffered, format="PNG")
+            img_str = base64.b64encode(buffered.getvalue()).decode()
+            return img_str
 
     def draw_maze(self, maze: list[list[str]], path: list[int] = None, path2:list[int] = None):
         rows = len(maze)
@@ -200,7 +210,7 @@ class Pathfinding:
             elif path[idx + 1] == i - 11:
                 orientation = "u"
                 ori_target = 0
-            elif path[idx + 1] == i + 11: 
+            elif path[idx + 1] == i + 11:
                 orientation = "d"
                 ori_target = 180
             else:

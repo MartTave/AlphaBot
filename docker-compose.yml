@@ -14,6 +14,7 @@ services:
       - XMPP_USERNAME=${AGENT_NAME}
     extra_hosts:
       - "prosody:${PROSODY_IP}"
+      - "api:172.20.0.4"
 
   calibration_agent:
     build: ./calibration_agent/

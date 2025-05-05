@@ -904,11 +904,18 @@ class AlphaBot2(object):
 
         json_commands = pathfinder.get_json_from_path(curr_path, robot[1])
 
-        pathfinder.draw_on_pic(curr_path, other_path)
+        b64_image = pathfinder.draw_on_pic(curr_path, other_path)
 
         requests.post(
             "http://prosody:3000/api/maze/plan",
-            json = {"image":"i"},
+            json = {
+                "image": b64_image
+            },
+            headers={
+                "Authorization": f"Bearer {self.api_token}",
+                "Connection": "keep-alive",
+            },
+            timeout=None,
         )
 
         for i in json_commands["commands"][:2]:

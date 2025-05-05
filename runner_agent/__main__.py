@@ -44,7 +44,7 @@ class ScanCommandSender(Agent):
             msg.body = self.message_body
             logger.info(f"Sending 'scan' command to {self.recipient_jid}...")
             await self.send(msg)
-            
+
             # Wait for a response with a 5-second timeout
             response = await self.receive(5000)
             if response:
@@ -52,7 +52,7 @@ class ScanCommandSender(Agent):
                 self.result = response.body
             else:
                 logger.warning("No response received from gate handler within timeout period")
-    
+
     async def setup(self):
         pass  # We'll add behaviors dynamically
 
@@ -63,33 +63,33 @@ async def run_scan_command_sender():
     xmpp_password = os.getenv("XMPP_PASSWORD")
 
     logger.info(f"Starting ScanCommandSender with JID: {xmpp_jid}")
-    
+
     # Create and start the agent
     scan_sender = ScanCommandSender(xmpp_jid, xmpp_password)
     await scan_sender.start(auto_register=True)
-    
+
     # Check if agent started successfully
     if not scan_sender.is_alive():
         logger.error("Scan command sender agent couldn't connect.")
         await scan_sender.stop()
         return None
-    
+
     logger.info("Scan command sender agent started successfully.")
-    
+
     # Add and run the scan behavior
     scan_behavior = scan_sender.SendScanCommandBehaviour("gate_handler@prosody")
     scan_sender.add_behaviour(scan_behavior)
-    
+
     # Wait for the behavior to complete
     while scan_behavior.is_running:
         await asyncio.sleep(0.5)
-    
+
     # Get the result
     result = scan_behavior.result
-    
+
     # Stop the agent
     await scan_sender.stop()
-    
+
     return result
 
 
@@ -197,13 +197,13 @@ async def main(target, command_file="/app/src/commands/command.json"):
     try:
         # First, send the scan command to gate_handler
         logger.info("Sending scan command to gate handler...")
-        scan_result = await run_scan_command_sender()
-        
-        if scan_result:
-            logger.info(f"Scan completed with result: {scan_result}")
-        else:
-            logger.warning("Scan command completed but no result was returned")
-        
+        # scan_result = await run_scan_command_sender()
+
+        # if scan_result:
+        #     logger.info(f"Scan completed with result: {scan_result}")
+        # else:
+        #     logger.warning("Scan command completed but no result was returned")
+
         # Next, run the alphabot controller with commands from the file
         logger.info("Starting alphabot controller to run commands...")
         alphabot_controller = await run_alphabot_controller(target, commands)

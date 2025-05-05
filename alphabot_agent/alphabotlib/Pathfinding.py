@@ -2,7 +2,13 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import time
 import json
+import logging
 from PIL import Image, ImageDraw
+
+
+logger = logging.getLogger(__name__)
+logger.level = logging.INFO
+
 
 class Node:
         #Each node has connected nodes (conn), meaning an adjacent node is reachable
@@ -161,6 +167,9 @@ class Pathfinding:
         # We give priority to the longest path
         hasPrio = len(curr_path) > len(other_path)
 
+        logger.info(f"Path is : {curr_path}")
+        logger.info(f"Other path is : {other_path}")
+
         for i in range(0, len(curr_path)):
             # Bounding the index to other path length to avoid out of bound, but still check as if the robot was stopped at his target
             other_i = min(i, len(other_path) - margin - 1)
@@ -170,6 +179,7 @@ class Pathfinding:
 
             for j, n in enumerate(curr_indexes):
                 if n in other_indexes:
+                    logger.warning("We haave a collision")
                     # We have a collision :(
                     # We need to move the end of the path of the robot who has not the priority
                     if hasPrio:

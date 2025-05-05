@@ -27,7 +27,7 @@ last_photo = None
 # Enable SPADE and XMPP specific logging
 for log_name in ["spade", "aioxmpp", "xmpp"]:
     log = logging.getLogger(log_name)
-    log.setLevel(logging.INFO)
+    log.setLevel(logging.ERROR)
     log.propagate = True
 
 

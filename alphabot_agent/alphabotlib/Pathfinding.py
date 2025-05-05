@@ -7,10 +7,6 @@ from PIL import Image, ImageDraw
 import logging
 
 logger = logging.getLogger(__name__)
-
-
-
-logger = logging.getLogger(__name__)
 logger.level = logging.INFO
 
 
@@ -78,7 +74,6 @@ class Pathfinding:
         import io
 
         board_size = (11,3)
-        logger.error(f"Aahha {[2, 4, 5]}")
 
         with Image.open("maze.jpg") as im:
 
@@ -232,6 +227,9 @@ class Pathfinding:
                 init_rota = ori_target - towards
                 init_rota = init_rota - 360 if init_rota > 180 else init_rota
                 init_rota = init_rota + 360 if init_rota < -180 else init_rota
+                logger.error(f"ROTATION: robot curr rotation {towards}")
+                logger.error(f"ROTATION: robot target rotation {ori_target}")
+                logger.error(f"ROTATION: robot correcting rotation {init_rota}")
                 # Setting up known rotation when first launching the pathfinding
                 if init_rota != 0: inst.append(f"rotate:{init_rota}")
                 inst.append("forward:1")
@@ -249,6 +247,7 @@ class Pathfinding:
                     inst.append("forward:1")
             prev = orientation
         out = {"commands":[]}
+        logger.error(f"PATH INST: list of instructions {inst}")
         for i in inst:
             cmd = i.split(":")[0]
             arg = i.split(":")[1]

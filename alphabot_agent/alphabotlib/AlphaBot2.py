@@ -579,7 +579,11 @@ class AlphaBot2(object):
         # returns the cropped rotated image
         x_min, x_max = x_pos
         y_min, y_max = y_pos
-        return(rotated_zoomed[x_min:x_max, y_min:y_max])
+        end_img = rotated_zoomed[x_min:x_max, y_min:y_max]
+
+        cv2.imwrite("maze.jpg", end_img)
+
+        return(end_img)
 
         ##### test
         # parameters for the temporary camera
@@ -900,7 +904,14 @@ class AlphaBot2(object):
 
         json_commands = pathfinder.get_json_from_path(curr_path, robot[1])
 
-        for i in json_commands["commands"][:3]:
+        pathfinder.draw_on_pic(curr_path, other_path)
+
+        requests.post(
+            "http://prosody:3000/api/maze/plan",
+            json = {"image":"i"},
+        )
+
+        for i in json_commands["commands"][:2]:
             # logger.info(i["command"])
             current_command = i["command"]
             # notify state change

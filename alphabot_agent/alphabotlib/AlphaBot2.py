@@ -752,13 +752,13 @@ class AlphaBot2(object):
         elif quality == "low quality":
             factor = 2.25
 
-        x_pos = [int(300 / factor),int(900 / factor)]
-        y_pos = [int(50 / factor),int(1850 / factor)]
+        x_pos = [int(305 / factor),int(868 / factor)]
+        y_pos = [int(37 / factor),int(1838 / factor)]
 
-        grid_top = int(45 / factor)
-        grid_down = int(475 / factor)
-        grid_left = int(65 / factor)
-        grid_right = int(1680 / factor)
+        grid_top = int(40 / factor)
+        grid_down = int(480 / factor)
+        grid_left = int(112 / factor)
+        grid_right = int(1700 / factor)
 
         grid_width = 11
         grid_height = 3
@@ -913,10 +913,11 @@ class AlphaBot2(object):
         path_robo1 = pathfinder.get_path_from_maze(self.labyrinth, robot[0], target)
         path_robo2 = pathfinder.get_path_from_maze(self.labyrinth, other_robot[0], other_target)
 
-
-        pathfinder.problem_detect(path_robo1, path_robo2)
+        pathfinder.draw_maze(self.labyrinth, path_robo1, path_robo2,  "./alphabot_agent/without_col.png")
 
         curr_path, other_path = pathfinder.avoid_collision(path_robo1, path_robo2)
+
+        pathfinder.draw_maze(self.labyrinth, curr_path, other_path, "./alphabot_agent/with_col.png")
 
         json_commands = pathfinder.get_json_from_path(curr_path, robot[1])
 

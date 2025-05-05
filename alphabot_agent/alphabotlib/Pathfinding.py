@@ -105,7 +105,7 @@ class Pathfinding:
             img_str = base64.b64encode(buffered.getvalue()).decode()
             return img_str
 
-    def draw_maze(self, maze: list[list[str]], path: list[int] = None, path2:list[int] = None):
+    def draw_maze(self, maze: list[list[str]], path: list[int] = None, path2:list[int] = None, filename="lab.png"):
         rows = len(maze)
         cols = len(maze[0]) if rows > 0 else 0
 
@@ -161,7 +161,7 @@ class Pathfinding:
                 if 'r' in cell:
                     ax.add_line(Line2D([x+1, x+1], [y, y+1], color='black', linewidth=2))
 
-        plt.savefig("in.png")
+        plt.savefig(filename)
 
     def avoid_collision(self, curr_path, other_path, margin=1):
         # We give priority to the longest path

@@ -19,7 +19,7 @@ from spade.message import Message
 from alphabot_agent.alphabotlib.AlphaBot2 import AlphaBot2
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger("AlphaBotAgent")
 
 last_photo = None
@@ -27,7 +27,7 @@ last_photo = None
 # Enable SPADE and XMPP specific logging
 for log_name in ["spade", "aioxmpp", "xmpp"]:
     log = logging.getLogger(log_name)
-    log.setLevel(logging.INFO)
+    log.setLevel(logging.ERROR)
     log.propagate = True
 
 

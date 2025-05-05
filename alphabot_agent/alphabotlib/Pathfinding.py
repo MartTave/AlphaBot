@@ -2,7 +2,17 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import time
 import json
+import logging
 from PIL import Image, ImageDraw
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+
+logger = logging.getLogger(__name__)
+logger.level = logging.INFO
+
 
 class Node:
         #Each node has connected nodes (conn), meaning an adjacent node is reachable
@@ -63,13 +73,12 @@ class Pathfinding:
         except:
             return []
 
-    def draw_on_pic(self, path, path2, save_image=False):
+    def draw_on_pic(self, path, path2, top_left, bottom_right, save_image=False):
         import base64
         import io
 
         board_size = (11,3)
-        top_left = (65,45)
-        bottom_right = (1680,475)
+        logger.error(f"Aahha {[2, 4, 5]}")
 
         with Image.open("maze.jpg") as im:
 
@@ -99,7 +108,7 @@ class Pathfinding:
             img_str = base64.b64encode(buffered.getvalue()).decode()
             return img_str
 
-    def draw_maze(self, maze: list[list[str]], path: list[int] = None, path2:list[int] = None):
+    def draw_maze(self, maze: list[list[str]], path: list[int] = None, path2:list[int] = None, filename="lab.png"):
         rows = len(maze)
         cols = len(maze[0]) if rows > 0 else 0
 
@@ -155,11 +164,14 @@ class Pathfinding:
                 if 'r' in cell:
                     ax.add_line(Line2D([x+1, x+1], [y, y+1], color='black', linewidth=2))
 
-        plt.savefig("in.png")
+        plt.savefig(filename)
 
     def avoid_collision(self, curr_path, other_path, margin=1):
         # We give priority to the longest path
         hasPrio = len(curr_path) > len(other_path)
+
+        logger.info(f"Path is : {curr_path}")
+        logger.info(f"Other path is : {other_path}")
 
         for i in range(0, len(curr_path)):
             # Bounding the index to other path length to avoid out of bound, but still check as if the robot was stopped at his target
@@ -170,6 +182,7 @@ class Pathfinding:
 
             for j, n in enumerate(curr_indexes):
                 if n in other_indexes:
+                    logger.warning("We haave a collision")
                     # We have a collision :(
                     # We need to move the end of the path of the robot who has not the priority
                     if hasPrio:

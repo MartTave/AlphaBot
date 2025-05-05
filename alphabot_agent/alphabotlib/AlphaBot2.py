@@ -37,6 +37,9 @@ class AlphaBot2(object):
             raise Exception("Could not get robot name through env variable")
 
         self.xmpp_username = botn
+        self.target = None
+        self.other_target = None
+
         self.botN = botn.split("-")[-1]
 
         self.otherN = "1" if self.botN == "2" else "2"
@@ -749,13 +752,13 @@ class AlphaBot2(object):
         elif quality == "low quality":
             factor = 2.25
 
-        x_pos = [int(300 / factor),int(900 / factor)]
-        y_pos = [int(68 / factor),int(1870 / factor)]
+        x_pos = [int(305 / factor),int(868 / factor)]
+        y_pos = [int(37 / factor),int(1838 / factor)]
 
-        grid_top = int(45 / factor)
-        grid_down = int(475 / factor)
-        grid_left = int(65 / factor)
-        grid_right = int(1680 / factor)
+        grid_top = int(40 / factor)
+        grid_down = int(480 / factor)
+        grid_left = int(112 / factor)
+        grid_right = int(1700 / factor)
 
         grid_width = 11
         grid_height = 3
@@ -767,11 +770,18 @@ class AlphaBot2(object):
         # Crop and rotate the image
         cropped = self.cropImage(img, rotation, x_pos, y_pos)
 
+        # Draw circles on the cropped image at grid_top, grid_left, grid_right, and grid_down
+        cv2.circle(cropped, (grid_left, grid_top), 10, (0, 255, 0), -1)  # Top-left
+        cv2.circle(cropped, (grid_right, grid_top), 10, (0, 255, 0), -1)  # Top-right
+        cv2.circle(cropped, (grid_left, grid_down), 10, (0, 255, 0), -1)  # Bottom-left
+        cv2.circle(cropped, (grid_right, grid_down), 10, (0, 255, 0), -1)  # Bottom-right
+
         cv2.imwrite("./alphabot_agent/frame_aha.png", cropped)
 
         def posToGrid(pos):
             grid_x = int((pos[0]-grid_left)/cell_width)
             grid_y = int((pos[1]-grid_top)/cell_height)
+            logger.info(f"Pos is : grid_x : {grid_x}, grid_y : {grid_y} grid_width : {grid_width} grid_height : {grid_height}")
             n = grid_x + grid_width * grid_y
             return n
 
@@ -865,19 +875,25 @@ class AlphaBot2(object):
             return cell, yaw_deg
 
         def detect_targets(img):
+            if self.target is None:
+                self.target = where_aruco(img, self.target_aruco_id)[0]
+                self.other_target = where_aruco(img, self.other_target_aruco_id)[0]
 
+        def detect_positions(img):
             robot = where_aruco(img, self.robot_aruco_id)
-            target = where_aruco(img, self.target_aruco_id)
-
             other_robot = where_aruco(img, self.other_aruco_id)
-            other_target = where_aruco(img, self.other_target_aruco_id)
+            return robot, other_robot
 
-            return robot, target, other_robot, other_target
 
+
+
+        detect_targets(cropped)
         labyrinth = find_labyrinth(cropped)
-        robot, target, other_robot, other_target = detect_targets(cropped)
+        robot, other_robot = detect_positions(cropped)
 
-        self.runMaze(robot, target, other_robot, other_target, (grid_left, grid_top), (grid_right, grid_down))
+        logger.info(f"Start is : {robot[0]} and other is : {other_robot[0]}")
+
+        self.runMaze(robot, self.target, other_robot, self.other_target, (grid_left, grid_top), (grid_right, grid_down))
 
 
 
@@ -894,13 +910,14 @@ class AlphaBot2(object):
         if self.labyrinth is None:
             logger.error("Can't run maze wihtout loading it first !")
             return
-        path_robo1 = pathfinder.get_path_from_maze(self.labyrinth, robot[0], target[0])
-        path_robo2 = pathfinder.get_path_from_maze(self.labyrinth, other_robot[0], other_target[0])
+        path_robo1 = pathfinder.get_path_from_maze(self.labyrinth, robot[0], target)
+        path_robo2 = pathfinder.get_path_from_maze(self.labyrinth, other_robot[0], other_target)
 
-
-        pathfinder.problem_detect(path_robo1, path_robo2)
+        pathfinder.draw_maze(self.labyrinth, path_robo1, path_robo2,  "./alphabot_agent/without_col.png")
 
         curr_path, other_path = pathfinder.avoid_collision(path_robo1, path_robo2)
+
+        pathfinder.draw_maze(self.labyrinth, curr_path, other_path, "./alphabot_agent/with_col.png")
 
         json_commands = pathfinder.get_json_from_path(curr_path, robot[1])
 

@@ -7,6 +7,9 @@ import ssl
 import aiosasl
 import aioxmpp.security_layer
 from spade.container import Container
+from spade.agent import Agent
+from spade.behaviour import OneShotBehaviour
+from spade.message import Message
 from .image_tester import ImageTester
 
 XMPP_JID = os.getenv("XMPP_JID", "runner") + "@prosody"
@@ -25,6 +28,69 @@ logger = logging.getLogger(__name__)
 from .alphabot_controller import AlphabotController
 from .calibration_sender import CalibrationSender
 from .camera_receiver import ReceiverAgent
+
+
+class ScanCommandSender(Agent):
+    class SendScanCommandBehaviour(OneShotBehaviour):
+        def __init__(self, recipient_jid):
+            super().__init__()
+            self.recipient_jid = recipient_jid
+            self.message_body = "scan"
+            self.result = None
+
+        async def run(self):
+            msg = Message(to=self.recipient_jid)
+            msg.set_metadata("performative", "inform")
+            msg.body = self.message_body
+            logger.info(f"Sending 'scan' command to {self.recipient_jid}...")
+            await self.send(msg)
+            
+            # Wait for a response with a 5-second timeout
+            response = await self.receive(5000)
+            if response:
+                logger.info(f"Received response from gate handler: {response.body}")
+                self.result = response.body
+            else:
+                logger.warning("No response received from gate handler within timeout period")
+    
+    async def setup(self):
+        pass  # We'll add behaviors dynamically
+
+
+async def run_scan_command_sender():
+    """Initialize and run the scan command sender agent"""
+    xmpp_jid = XMPP_JID
+    xmpp_password = os.getenv("XMPP_PASSWORD")
+
+    logger.info(f"Starting ScanCommandSender with JID: {xmpp_jid}")
+    
+    # Create and start the agent
+    scan_sender = ScanCommandSender(xmpp_jid, xmpp_password)
+    await scan_sender.start(auto_register=True)
+    
+    # Check if agent started successfully
+    if not scan_sender.is_alive():
+        logger.error("Scan command sender agent couldn't connect.")
+        await scan_sender.stop()
+        return None
+    
+    logger.info("Scan command sender agent started successfully.")
+    
+    # Add and run the scan behavior
+    scan_behavior = scan_sender.SendScanCommandBehaviour("gate_handler@prosody")
+    scan_sender.add_behaviour(scan_behavior)
+    
+    # Wait for the behavior to complete
+    while scan_behavior.is_running:
+        await asyncio.sleep(0.5)
+    
+    # Get the result
+    result = scan_behavior.result
+    
+    # Stop the agent
+    await scan_sender.stop()
+    
+    return result
 
 
 def create_ssl_context():
@@ -121,6 +187,7 @@ async def main(target, command_file="/app/src/commands/command.json"):
     os.makedirs("received_photos", exist_ok=True)
 
     target = f"alpha-pi-4b-agent-{target}@prosody"
+    alphabot_controller = None
 
     with open(command_file, "r") as file:
         data = json.load(file)
@@ -128,9 +195,20 @@ async def main(target, command_file="/app/src/commands/command.json"):
     commands = data["commands"]
 
     try:
+        # First, send the scan command to gate_handler
+        logger.info("Sending scan command to gate handler...")
+        scan_result = await run_scan_command_sender()
+        
+        if scan_result:
+            logger.info(f"Scan completed with result: {scan_result}")
+        else:
+            logger.warning("Scan command completed but no result was returned")
+        
+        # Next, run the alphabot controller with commands from the file
+        logger.info("Starting alphabot controller to run commands...")
         alphabot_controller = await run_alphabot_controller(target, commands)
 
-        logger.info("Both agents running. Press Ctrl+C to stop.")
+        logger.info("Both operations in progress. Press Ctrl+C to stop.")
 
         while any(
             behavior.is_running for behavior in alphabot_controller.behaviours
@@ -141,8 +219,10 @@ async def main(target, command_file="/app/src/commands/command.json"):
 
     except KeyboardInterrupt:
         logger.info("Received keyboard interrupt. Shutting down...")
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
     finally:
-        if "alphabot_controller" in locals():
+        if "alphabot_controller" in locals() and alphabot_controller is not None:
             await alphabot_controller.stop()
         logger.info("All agents stopped.")
 

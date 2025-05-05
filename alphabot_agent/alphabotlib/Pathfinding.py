@@ -155,24 +155,31 @@ class Pathfinding:
         path = self.get_path_from_maze(maze, start, stop)
         prev = ""
         orientation = ""
+        ori_target = 0
         inst = []
         for idx, i in enumerate(path[:-1]):
             if path[idx + 1] == i + 1:
                 orientation = "r"
+                ori_target = 0
             elif path[idx + 1] == i - 1:
                 orientation = "l"
+                ori_target = 180
             elif path[idx + 1] == i - 11:
                 orientation = "u"
-            elif path[idx + 1] == i + 11:
+                ori_target = -90
+            elif path[idx + 1] == i + 11: 
                 orientation = "d"
+                ori_target = 90
             else:
                 print("uh oh")
             if prev == "":
                 rota = towards % 90
+
                 init_rota = - rota if abs(rota) < 45 else 90 - rota
-                print(init_rota)
+                init_rota = ori_target + init_rota
                 # Setting up known rotation when first launching the pathfinding
                 if init_rota != 0: inst.append(f"rotate:{init_rota}")
+
                 inst.append("forward:1")
             else:
                 if prev == orientation:

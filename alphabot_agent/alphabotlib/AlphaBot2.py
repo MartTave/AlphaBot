@@ -53,6 +53,16 @@ class AlphaBot2(object):
         self.updateFromConfig()
 
         self.labyrinth = None
+  
+        self.calibrationFilePath = "./alphabot_agent/calibs/"
+
+        fileLow = np.load(self.calibrationFilePath + "Logitec_ceiling_854-480_0.npz")
+        self.mtxLow = fileLow["mtx"]
+        self.distLow = fileLow["dist"]
+
+        fileHigh = np.load(self.calibrationFilePath + "Logitec_ceiling_1920-1080_0.npz")
+        self.mtxHigh = fileHigh["mtx"]
+        self.distHigh = fileHigh["dist"]
 
         self.api_url = "http://prosody:3000/api/messages"
         self.api_token = os.environ.get("API_TOKEN", "your_secret_token")
@@ -858,9 +868,8 @@ class AlphaBot2(object):
             ], dtype=np.float32)
 
 
-            # Camera matrix and distortion coefficients (a regler une fois la camera calibrée)
-            camera_matrix = np.array([[1, 0, 1], [0, 1, 1], [0, 0, 1]])
-            dist_coeffs = np.zeros((4, 1))
+            camera_matrix = self.mtxHigh if quality == "full quality" else self.mtxLow
+            dist_coeffs = self.distHigh if quality == "full quality" else self.distLow
 
             # Solve for pose
             success, rvec, tvec = cv2.solvePnP(obj_points, marker_corners[pos[0][0]][0], camera_matrix, dist_coeffs)

@@ -321,6 +321,10 @@ class AlphaBotAgent(Agent):
                 self.agent.robot.calibrateForwardCorrection()
 
             elif command == "solve":
+                # reset sync waiting locks
+                self.agent.isArrived = False
+                self.agent.otherRobotArrived = False
+
                 self.agent.robot.labyrinth = None
                 self.agent.add_behaviour(self.agent.AskPhotoBehaviour())
             elif command.startswith("motor "):

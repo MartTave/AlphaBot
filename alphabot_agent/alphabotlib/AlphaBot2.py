@@ -1,4 +1,5 @@
 import json
+from ssl import ALERT_DESCRIPTION_CERTIFICATE_REVOKED
 import threading
 import RPi.GPIO as GPIO
 import time
@@ -53,7 +54,7 @@ class AlphaBot2(object):
         self.updateFromConfig()
 
         self.labyrinth = None
-  
+
         self.calibrationFilePath = "./alphabot_agent/calibs/"
 
         fileLow = np.load(self.calibrationFilePath + "Logitec_ceiling_854-480_0.npz")
@@ -624,7 +625,7 @@ class AlphaBot2(object):
         image_upper_hsv = np.array([20, 255, 255])
         imageMask2 = cv2.inRange(hsv, image_lower_hsv, image_upper_hsv)
         imageMask2 = cv2.inRange(hsv, image_lower_hsv, image_upper_hsv)
-        
+
         # combine masks
         mask = cv2.bitwise_or(imageMask1, imageMask2)
 
@@ -911,7 +912,7 @@ class AlphaBot2(object):
 
         logger.info(f"Start is : {robot[0]} and other is : {other_robot[0]}")
 
-        self.runMaze(robot, self.target, other_robot, self.other_target, (grid_left, grid_top), (grid_right, grid_down))
+        return self.runMaze(robot, self.target, other_robot, self.other_target, (grid_left, grid_top), (grid_right, grid_down))
 
 
 
@@ -935,10 +936,8 @@ class AlphaBot2(object):
         logger.error(f"other robot: {other_robot}")
 
         pathfinder.draw_maze(self.labyrinth, path_robo1, path_robo2,  "./alphabot_agent/without_col.png")
-
         curr_path, other_path = pathfinder.avoid_collision(path_robo1, path_robo2)
 
-        pathfinder.draw_maze(self.labyrinth, curr_path, other_path, "./alphabot_agent/with_col.png")
 
         json_commands = pathfinder.get_json_from_path(curr_path, robot[1])
 
@@ -955,8 +954,16 @@ class AlphaBot2(object):
             },
             timeout=None,
         )
+        arrived = False
+        toExecute = []
+        if len(json_commands["commands"]) == 2:
+            logger.warning("Reducing the number of command, removing the last to stop before target")
+            toExecute = json_commands["commands"][:-1]
+            arrived = True
+        else:
+            toExecute = json_commands["commands"][:2]
 
-        for i in json_commands["commands"][:2]:
+        for i in toExecute:
             # logger.info(i["command"])
             current_command = i["command"]
             # notify state change
@@ -973,6 +980,7 @@ class AlphaBot2(object):
             # notify state change
             # when going back to idle
             self.notify_state_change(self.BotState.IDLE, "")
+        return arrived
 
     def notify_state_change(self, state, label):
         if self.session:

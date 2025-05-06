@@ -605,9 +605,18 @@ class AlphaBot2(object):
     def _getLines(self, img, rho, theta, threshold, min_line_length, max_line_gap, angle_thresh):
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-        lower = np.array([93, 68, 99])
-        upper = np.array([179, 255,255])
-        mask = cv2.inRange(hsv, lower, upper)
+        # -30 to 0
+        image_lower_hsv = np.array([160, 91, 108])
+        image_upper_hsv = np.array([179, 255, 255])
+        imageMask1 = cv2.inRange(hsv, image_lower_hsv, image_upper_hsv)
+        # 0 to 30
+        image_lower_hsv = np.array([0, 148, 108])
+        image_upper_hsv = np.array([20, 255, 255])
+        imageMask2 = cv2.inRange(hsv, image_lower_hsv, image_upper_hsv)
+        imageMask2 = cv2.inRange(hsv, image_lower_hsv, image_upper_hsv)
+        
+        # combine masks
+        mask = cv2.bitwise_or(imageMask1, imageMask2)
 
         ## Slice the red
         red = cv2.bitwise_and(img, img, mask=mask)

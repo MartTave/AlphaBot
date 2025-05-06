@@ -206,32 +206,20 @@ class Pathfinding:
     def get_json_from_path(self, path, towards=0):
         prev = ""
         orientation = ""
-        ori_target = 0
         inst = []
         for idx, i in enumerate(path[:-1]):
             if path[idx + 1] == i + 1:
                 orientation = "r"
-                ori_target = 90
             elif path[idx + 1] == i - 1:
                 orientation = "l"
-                ori_target = 270
             elif path[idx + 1] == i - 11:
                 orientation = "u"
-                ori_target = 0
             elif path[idx + 1] == i + 11:
                 orientation = "d"
-                ori_target = 180
             else:
                 print("uh oh")
             if prev == "":
-                init_rota = ori_target - towards
-                init_rota = init_rota - 360 if init_rota > 180 else init_rota
-                init_rota = init_rota + 360 if init_rota < -180 else init_rota
-                logger.error(f"ROTATION: robot curr rotation {towards}")
-                logger.error(f"ROTATION: robot target rotation {ori_target}")
-                logger.error(f"ROTATION: robot correcting rotation {init_rota}")
-                # Setting up known rotation when first launching the pathfinding
-                if init_rota != 0: inst.append(f"rotate:{init_rota}")
+                if towards != 0: inst.append(f"rotate:{towards}")
                 inst.append("forward:1")
             else:
                 if prev == orientation:

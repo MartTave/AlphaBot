@@ -889,7 +889,7 @@ class AlphaBot2(object):
             yaw_deg = np.degrees(yaw)
 
 
-            return cell, yaw_deg
+            return cell, yaw_deg, moy_x, moy_y
 
         def detect_targets(img):
             if self.target is None:
@@ -922,6 +922,21 @@ class AlphaBot2(object):
         grid_y = int((pos[1]-grid_top)/section_height)
         return grid_x, grid_y
 
+    def get_corr_angle_dist(self, robot, next_x, next_y):
+        import math
+        rx = robot[2]
+        ry = robot[3]
+
+        dx = next_x-rx
+        dy = next_y-ry
+
+        try:
+            angle_aligned = - math.degrees(math.atan(dx/dy))
+        except:
+              angle_aligned = 90 if next_x > rx else -90
+        correcting_angle = angle_aligned - robot[1]
+
+        return correcting_angle
 
     def runMaze(self, robot, target, other_robot, other_target, top_left, bottom_right):
         pathfinder = Pathfinding()
@@ -937,7 +952,15 @@ class AlphaBot2(object):
         curr_path, other_path = pathfinder.avoid_collision(path_robo1, path_robo2)
 
 
-        json_commands = pathfinder.get_json_from_path(curr_path, robot[1])
+        w = (top_left[0] - bottom_right[0]) / 11
+        h = (top_left[1] - bottom_right[1]) / 3
+
+        next_x = (curr_path[1] % 11) * w + (w/2) + top_left[0]
+        next_y = int(curr_path[1] / 11) * h + (h/2) + top_left[1]
+
+        angle = self.get_corr_angle_dist(robot, next_x, next_y)
+
+        json_commands = pathfinder.get_json_from_path(curr_path, angle)
 
         b64_image = pathfinder.draw_on_pic(curr_path, other_path, top_left, bottom_right)
 
@@ -972,8 +995,8 @@ class AlphaBot2(object):
                 rotation = int(float(i["args"][0]))
                 self.turn(rotation)
             elif current_command == "forward":
-                frwrd = int(float(i["args"][0]))
-                self.safeForward(200 * frwrd, blocking=True)
+                frwrd = int(float(i["args"][0])*200.0)
+                self.safeForward(frwrd, blocking=True)
 
             # notify state change
             # when going back to idle

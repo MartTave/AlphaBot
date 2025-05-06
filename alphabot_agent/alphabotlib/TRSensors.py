@@ -82,7 +82,7 @@ class TRSensor(object):
     def calibrate(self):
         max_sensor_values = [0] * self.numSensors
         min_sensor_values = [0] * self.numSensors
-        for j in range(0, 500):
+        for j in range(0, 1500):
             sensor_values = self.AnalogRead()
 
             for i in range(0, self.numSensors):
@@ -184,7 +184,7 @@ class TRSensor(object):
             self.last_value = avg / sum
 
         return self.last_value, sensor_values
-	
+
 
 
 # Simple example prints accel/mag data once per second:
@@ -197,4 +197,3 @@ if __name__ == '__main__':
 			time.sleep(0.2)
 		except KeyboardInterrupt:
 			break
-			 

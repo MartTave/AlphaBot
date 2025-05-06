@@ -234,6 +234,7 @@ class AlphaBotAgent(Agent):
         async def run(self):
             msg = await self.receive(timeout=100)
             if msg:
+                self.agent.robot.updateFromConfig()
                 logger.info(
                     f"[Behavior] Received command ({msg.sender}): {msg.body}"
                 )

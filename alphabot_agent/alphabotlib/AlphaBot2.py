@@ -53,7 +53,7 @@ class AlphaBot2(object):
         self.updateFromConfig()
 
         self.labyrinth = None
-  
+
         self.calibrationFilePath = "./alphabot_agent/calibs/"
 
         fileLow = np.load(self.calibrationFilePath + "Logitec_ceiling_854-480_0.npz")
@@ -79,6 +79,8 @@ class AlphaBot2(object):
         )
 
         self.TR = TRSensor()
+        self.TR.calibratedMin = self.config["sensors_min"]
+        self.TR.calibratedMax = self.config["sensors_max"]
 
     class BotState(Enum):
         IDLE = "idle"
@@ -190,7 +192,7 @@ class AlphaBot2(object):
         GPIO.output(self.BUZ, GPIO.LOW)
 
     def calibrateTRSensors(self):
-        self.left(15)
+        self.left(30)
         time.sleep(0.5)
         self.TR.calibrate()
         self.stop()
@@ -220,8 +222,7 @@ class AlphaBot2(object):
         lineTreshold = 150
         whiteTreshold = 850
 
-        self.turn_speed = speed
-        self.config["turnSpeed"] = speed
+        speed = self.config["turnSpeed"]
 
 
         angles = [90, 180, 270, 360, 450, 540]
@@ -313,15 +314,12 @@ class AlphaBot2(object):
                 self.beep_off()
                 break
 
-    def calibrateForward(self, speed=30):
+    def calibrateForward(self):
         lineTreshold = 100
         whiteTreshold = 900
 
 
-        self.forward_speed = speed
-
-        self.config["forwardSpeed"] = speed
-
+        speed = self.config["forwardSpeed"]
 
         papers = [[30, 40, 70, 120], [100, 150]]
 
@@ -624,7 +622,7 @@ class AlphaBot2(object):
         image_upper_hsv = np.array([20, 255, 255])
         imageMask2 = cv2.inRange(hsv, image_lower_hsv, image_upper_hsv)
         imageMask2 = cv2.inRange(hsv, image_lower_hsv, image_upper_hsv)
-        
+
         # combine masks
         mask = cv2.bitwise_or(imageMask1, imageMask2)
 

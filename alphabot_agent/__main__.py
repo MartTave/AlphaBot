@@ -15,6 +15,7 @@ import aiohttp
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour, OneShotBehaviour
 from spade.message import Message
+from spade.template import Template
 
 from alphabot_agent.alphabotlib.AlphaBot2 import AlphaBot2
 
@@ -23,6 +24,29 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("AlphaBotAgent")
 
 last_photo = None
+
+def match_runner(msg):
+    return str(msg.sender).split("/")[0] == "runner@prosody"
+
+
+def match_camera(msg):
+    return str(msg.sender).split("/")[0] == "camera_agent@prosody"
+
+def match_robot(msg):
+    return str(msg.sender).startswith("alpha-pi-4b-agent")
+
+fromRunnerTemplate = Template()
+
+fromRunnerTemplate.match = match_runner
+
+fromCameraTemplate = Template()
+
+fromCameraTemplate.match = match_camera
+
+
+fromRobotTemplate = Template()
+
+fromRobotTemplate.match = match_robot
 
 # Enable SPADE and XMPP specific logging
 for log_name in ["spade", "aioxmpp", "xmpp"]:
@@ -40,6 +64,8 @@ class AlphaBotAgent(Agent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.state = None
+        self.isArrived = False
+        self.otherRobotArrived = False
 
     async def setup(self):
         self.robot = AlphaBot2()
@@ -54,59 +80,24 @@ class AlphaBotAgent(Agent):
             },
         )
 
-        # Add a periodic heartbeat behavior
-        # heartbeat_behavior = self.HeartbeatBehavior()
-        # self.add_behaviour(heartbeat_behavior)
-
         # Add command listener behavior
-        command_behavior = self.XMPPCommandListener()
-        self.add_behaviour(command_behavior)
+        self.add_behaviour(self.XMPPCommandListener(), fromRobotTemplate)
 
-        # Set initial state after setup
-        # await self.set_state(BotState.IDLE, "")
+        self.add_behaviour(self.ReceiveOtherRobotArrived(), fromRobotTemplate)
 
-    # Add a new heartbeat behavior
-    class HeartbeatBehavior(CyclicBehaviour):
+
+    class ReceiveOtherRobotArrived(OneShotBehaviour):
         async def run(self):
-            if self.agent.state:  # Only send heartbeat if we have a state
+            msg = await self.receive(timeout=10)
+            if not msg:
+                self.agent.add_behaviour(self.agent.ReceiveOtherRobotArrived(), fromRobotTemplate)
+                return
+            if msg.body == "I'm arrived":
+                logger.info("Got arrived message from other robot !")
+                self.agent.otherArrived = True
+            else:
+                logger.warning(f"Got unknown message from other robot {msg}")
 
-                await self.agent.notify_state_change(
-                    ""
-                )  # Send current state as heartbeat
-            await asyncio.sleep(30)
-
-    class waitForStartBehavior(OneShotBehaviour):
-        async def run(self):
-
-            def waitForUpJoystick():
-                UP = 8
-                BUZ = 4
-                GPIO.setmode(GPIO.BCM)
-                GPIO.setwarnings(False)
-                GPIO.setup(UP, GPIO.IN, GPIO.PUD_UP)
-                GPIO.setup(BUZ, GPIO.OUT)
-
-
-                def beep_on():
-                    GPIO.output(BUZ, GPIO.HIGH)
-                    pass
-
-                def beep_off():
-                    GPIO.output(BUZ, GPIO.LOW)
-                    pass
-
-                while True:
-                    time.sleep(0.05)
-                    if GPIO.input(UP) == 0:
-                        beep_on()
-                        while GPIO.input(UP) == 0:
-                            time.sleep(0.05)
-                        beep_off()
-                        break
-
-            # waitForUpJoystick()
-            self.agent.add_behaviour(self.agent.AskPhotoBehaviour())
-            # We can start the maze resolution !
 
     class ProcessImageBehaviour(OneShotBehaviour):
         def __init__(self, img, quality):
@@ -115,10 +106,8 @@ class AlphaBotAgent(Agent):
             self.quality = quality
 
         async def run(self):
-
             self.agent.robot.processImage(self.img, self.quality)
-
-            self.agent.add_behaviour(self.agent.AskPhotoBehaviour())
+            self.agent.add_behaviour(self.agent.AskPhotoBehaviour(), fromCameraTemplate)
 
     class AskPhotoBehaviour(OneShotBehaviour):
         def __init__(self):
@@ -233,6 +222,7 @@ class AlphaBotAgent(Agent):
 
         async def run(self):
             msg = await self.receive(timeout=100)
+            logger.error(f"Message is : {msg}")
             if msg:
                 logger.info(
                     f"[Behavior] Received command ({msg.sender}): {msg.body}"
@@ -260,7 +250,7 @@ class AlphaBotAgent(Agent):
                 reply.body = f"Executed command: {msg.body}"
                 await self.send(reply)
             logger.info("loop done, restarting !")
-            self.agent.add_behaviour(self.agent.XMPPCommandListener())
+            self.agent.add_behaviour(self.agent.XMPPCommandListener(), fromRunnerTemplate)
 
         async def process_command(self, command):
             command = command.strip().lower()

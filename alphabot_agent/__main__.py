@@ -85,6 +85,7 @@ class AlphaBotAgent(Agent):
         )
 
         # Add command listener behavior
+<<<<<<< HEAD
         self.add_behaviour(self.XMPPCommandListener(), fromRunnerTemplate)
 
         self.add_behaviour(self.ReceiveOtherRobotArrived(), fromRobotTemplate)
@@ -124,6 +125,25 @@ class AlphaBotAgent(Agent):
             else:
                 logger.warning(f"Got unknown message from other robot {msg}")
 
+=======
+        self.add_behaviour(self.XMPPCommandListener(), fromRobotTemplate)
+
+        self.add_behaviour(self.ReceiveOtherRobotArrived(), fromRobotTemplate)
+
+
+    class ReceiveOtherRobotArrived(OneShotBehaviour):
+        async def run(self):
+            msg = await self.receive(timeout=10)
+            if not msg:
+                self.agent.add_behaviour(self.agent.ReceiveOtherRobotArrived(), fromRobotTemplate)
+                return
+            if msg.body == "I'm arrived":
+                logger.info("Got arrived message from other robot !")
+                self.agent.otherArrived = True
+            else:
+                logger.warning(f"Got unknown message from other robot {msg}")
+
+>>>>>>> 50f6f72 (wip)
 
     class ProcessImageBehaviour(OneShotBehaviour):
         def __init__(self, img, quality):
@@ -132,6 +152,7 @@ class AlphaBotAgent(Agent):
             self.quality = quality
 
         async def run(self):
+<<<<<<< HEAD
             isArrived = self.agent.robot.processImage(self.img, self.quality)
             if not isArrived:
                 logger.info("Still not arrived to dest, looping one more time")
@@ -139,6 +160,10 @@ class AlphaBotAgent(Agent):
             else:
                 logger.info("Arrived ! Sending info to other robot")
                 self.agent.add_behaviour(self.agent.SendOtherRobotArrived())
+=======
+            self.agent.robot.processImage(self.img, self.quality)
+            self.agent.add_behaviour(self.agent.AskPhotoBehaviour(), fromCameraTemplate)
+>>>>>>> 50f6f72 (wip)
 
     class AskPhotoBehaviour(OneShotBehaviour):
         def __init__(self):

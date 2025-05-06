@@ -35,7 +35,7 @@ class ScanCommandSender(Agent):
         def __init__(self, recipient_jid):
             super().__init__()
             self.recipient_jid = recipient_jid
-            self.message_body = "scan"
+            self.message_body = "Command: scan"
             self.result = None
 
         async def run(self):

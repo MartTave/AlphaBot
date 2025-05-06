@@ -190,7 +190,7 @@ class CameraAgent(agent.Agent):
             print(f"Splitting image into {total_chunks} chunks")
 
             # Create a more descriptive metadata payload
-            metadata_payload = f"Sending {total_chunks} chunks, total size {total_size} bytes, resolution {width}x{height}"
+            metadata_payload = f"Sending {total_chunks} chunk(s), total size {total_size} bytes, resolution {width}x{height}"
 
             # First, send metadata about the image
             metadata_msg = Message(to=self.raw_requester_jid)

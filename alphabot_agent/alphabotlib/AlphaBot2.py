@@ -855,7 +855,7 @@ class AlphaBot2(object):
             dist_coeffs = np.zeros((4, 1))
 
             # Solve for pose
-            success, rvec, tvec = cv2.solvePnP(obj_points, marker_corners[0][0], camera_matrix, dist_coeffs)
+            success, rvec, tvec = cv2.solvePnP(obj_points, marker_corners[pos[0][0]][0], camera_matrix, dist_coeffs)
 
             # Convert rotation vector to rotation matrix
             rotation_matrix, _ = cv2.Rodrigues(rvec)
@@ -880,11 +880,12 @@ class AlphaBot2(object):
                 self.other_target = where_aruco(img, self.other_target_aruco_id)[0]
 
         def detect_positions(img):
+            logger.error(f"self.robot_aruco_id {self.robot_aruco_id}")
+            logger.error(f"self.other_aruco_id {self.other_aruco_id}")
+
             robot = where_aruco(img, self.robot_aruco_id)
             other_robot = where_aruco(img, self.other_aruco_id)
             return robot, other_robot
-
-
 
 
         detect_targets(cropped)
@@ -912,6 +913,9 @@ class AlphaBot2(object):
             return
         path_robo1 = pathfinder.get_path_from_maze(self.labyrinth, robot[0], target)
         path_robo2 = pathfinder.get_path_from_maze(self.labyrinth, other_robot[0], other_target)
+
+        logger.error(f"robot: {robot}")
+        logger.error(f"other robot: {other_robot}")
 
         pathfinder.draw_maze(self.labyrinth, path_robo1, path_robo2,  "./alphabot_agent/without_col.png")
 

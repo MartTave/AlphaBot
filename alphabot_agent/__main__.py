@@ -124,8 +124,7 @@ class AlphaBotAgent(Agent):
                         finishMazeLater(self.agent, other_robot_timestamp)
                 else:
                     logger.warning(f"Got unknown message from other robot {msg}")
-            else:
-                self.agent.add_behaviour(self.agent.ReceiveOtherRobotArrived(), fromRobotTemplate)
+            self.agent.add_behaviour(self.agent.ReceiveOtherRobotArrived(), fromRobotTemplate)
 
     class ProcessImageBehaviour(OneShotBehaviour):
         def __init__(self, img, quality):

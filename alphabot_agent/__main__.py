@@ -112,20 +112,20 @@ class AlphaBotAgent(Agent):
     class ReceiveOtherRobotArrived(OneShotBehaviour):
         async def run(self):
             msg = await self.receive(timeout=10)
-            if not msg:
-                self.agent.add_behaviour(self.agent.ReceiveOtherRobotArrived(), fromRobotTemplate)
-                return
-            if msg.body.startswith("arrived at:"):
-                logger.info("Got arrived message from other robot !")
-                self.agent.otherRobotArrived = True
-                if self.agent.isArrived:
-                    # Both arrived, we can finish in sync !
-                    timestamp_str = msg.body.split(":", 1)[-1].strip()
-                    other_robot_timestamp = datetime.datetime.fromisoformat(timestamp_str)
-                    logger.info(f"Parsed timestamp from other robot: {other_robot_timestamp}")
-                    finishMazeLater(self.agent, other_robot_timestamp)
+            if msg:
+                if msg.body.startswith("arrived at:"):
+                    logger.info("Got arrived message from other robot !")
+                    self.agent.otherRobotArrived = True
+                    if self.agent.isArrived:
+                        # Both arrived, we can finish in sync !
+                        timestamp_str = msg.body.split(":", 1)[-1].strip()
+                        other_robot_timestamp = datetime.datetime.fromisoformat(timestamp_str)
+                        logger.info(f"Parsed timestamp from other robot: {other_robot_timestamp}")
+                        finishMazeLater(self.agent, other_robot_timestamp)
+                else:
+                    logger.warning(f"Got unknown message from other robot {msg}")
             else:
-                logger.warning(f"Got unknown message from other robot {msg}")
+                self.agent.add_behaviour(self.agent.ReceiveOtherRobotArrived(), fromRobotTemplate)
 
     class ProcessImageBehaviour(OneShotBehaviour):
         def __init__(self, img, quality):

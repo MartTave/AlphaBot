@@ -1,7 +1,7 @@
 {
   "commands": [
     {
-      "command": "solve",
+      "command": "full_calibration",
       "args": []
     }
   ]

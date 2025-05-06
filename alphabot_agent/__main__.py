@@ -6,6 +6,7 @@ import RPi.GPIO as GPIO
 import base64
 import json
 import numpy as np
+from numpy._core.shape_base import block
 import cv2
 import io
 from enum import Enum
@@ -22,8 +23,6 @@ from alphabot_agent.alphabotlib.AlphaBot2 import AlphaBot2
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("AlphaBotAgent")
-
-last_photo = None
 
 def match_runner(msg):
     return str(msg.sender).split("/")[0] == "runner@prosody"
@@ -58,6 +57,9 @@ for log_name in ["spade", "aioxmpp", "xmpp"]:
 class BotState(Enum):
     IDLE = "idle"
     EXECUTING = "executing"
+def finishMazeLater(agent, now, delta=5):
+    start_time = now + datetime.timedelta(seconds=5)
+    agent.add_behaviour(agent.FinishMazeBehaviour(), start_at=start_time)
 
 
 class AlphaBotAgent(Agent):
@@ -81,16 +83,25 @@ class AlphaBotAgent(Agent):
         )
 
         # Add command listener behavior
-        self.add_behaviour(self.XMPPCommandListener(), fromRobotTemplate)
+        self.add_behaviour(self.XMPPCommandListener(), fromRunnerTemplate)
 
         self.add_behaviour(self.ReceiveOtherRobotArrived(), fromRobotTemplate)
 
     class SendOtherRobotArrived(OneShotBehaviour):
         async def run(self):
             msg = Message()
-            msg.body = ""
+            now = datetime.datetime.now()
+            timestamp = now.isoformat()
+            msg.body = f"arrived at:{timestamp}"
             await self.send(msg)
+            if self.agent.otherRobotArrived:
+                finishMazeLater(self.agent, now)
 
+    class FinishMazeBehaviour(OneShotBehaviour):
+        async def run(self):
+            self.agent.robot.safeForward(200, blocking=True)
+            logger.info("Finished the maze !")
+        pass
 
 
     class ReceiveOtherRobotArrived(OneShotBehaviour):
@@ -99,9 +110,15 @@ class AlphaBotAgent(Agent):
             if not msg:
                 self.agent.add_behaviour(self.agent.ReceiveOtherRobotArrived(), fromRobotTemplate)
                 return
-            if msg.body == "I'm arrived":
+            if msg.body.startswith("arrived at:"):
                 logger.info("Got arrived message from other robot !")
                 self.agent.otherArrived = True
+                if self.agent.isArrived:
+                    # Both arrived, we can finish in sync !
+                    timestamp_str = msg.body.split(":", 1)[-1].strip()
+                    other_robot_timestamp = datetime.datetime.fromisoformat(timestamp_str)
+                    logger.info(f"Parsed timestamp from other robot: {other_robot_timestamp}")
+                    finishMazeLater(self.agent, other_robot_timestamp)
             else:
                 logger.warning(f"Got unknown message from other robot {msg}")
 
@@ -129,6 +146,7 @@ class AlphaBotAgent(Agent):
             self.total_chunks = 0
             self.total_size = 0
             self.received_chunks = 0
+            self.last_photo = None
             self.complete_image = None
 
         async def receive_image_chunks(self, timeout=30):
@@ -202,17 +220,17 @@ class AlphaBotAgent(Agent):
 
 
         async def run(self):
-            global last_photo
             msg = Message(to="camera_agent@prosody")
             msg.set_metadata("performative", "inform")
-            if last_photo is None:
+            if self.last_photo is None:
                 quality = "full quality"
+                self.agent.robot.labyrinth = None
             else:
                 quality = "low quality"
 
             msg.body = quality
-            if last_photo is not None and time.time() - last_photo < 500:
-                delay = (500 - (time.time() - last_photo))
+            if self.last_photo is not None and time.time() - self.last_photo < 500:
+                delay = (500 - (time.time() - self.last_photo))
                 logger.info("500ms not elapsed since last request, sleeping for : " + str(delay))
                 time.sleep(delay / 1000)
             await self.send(msg)
@@ -299,6 +317,7 @@ class AlphaBotAgent(Agent):
                 self.agent.robot.calibrateForwardCorrection()
 
             elif command == "solve":
+
                 self.agent.add_behaviour(self.agent.AskPhotoBehaviour())
             elif command.startswith("motor "):
                 try:

@@ -130,6 +130,13 @@ class AlphaBotAgent(Agent):
 
         self.add_behaviour(self.ReceiveOtherRobotArrived(), fromRobotTemplate)
 
+    class SendOtherRobotArrived(OneShotBehaviour):
+        async def run(self):
+            msg = Message()
+            msg.body = ""
+            await self.send(msg)
+
+
 
     class ReceiveOtherRobotArrived(OneShotBehaviour):
         async def run(self):
@@ -153,6 +160,9 @@ class AlphaBotAgent(Agent):
 
         async def run(self):
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 29ad9b3 (wip)
             isArrived = self.agent.robot.processImage(self.img, self.quality)
             if not isArrived:
                 logger.info("Still not arrived to dest, looping one more time")
@@ -160,10 +170,13 @@ class AlphaBotAgent(Agent):
             else:
                 logger.info("Arrived ! Sending info to other robot")
                 self.agent.add_behaviour(self.agent.SendOtherRobotArrived())
+<<<<<<< HEAD
 =======
             self.agent.robot.processImage(self.img, self.quality)
             self.agent.add_behaviour(self.agent.AskPhotoBehaviour(), fromCameraTemplate)
 >>>>>>> 50f6f72 (wip)
+=======
+>>>>>>> 29ad9b3 (wip)
 
     class AskPhotoBehaviour(OneShotBehaviour):
         def __init__(self):

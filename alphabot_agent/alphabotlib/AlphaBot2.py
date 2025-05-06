@@ -932,10 +932,13 @@ class AlphaBot2(object):
         path_robo1 = pathfinder.get_path_from_maze(self.labyrinth, robot[0], target)
         path_robo2 = pathfinder.get_path_from_maze(self.labyrinth, other_robot[0], other_target)
 
+<<<<<<< HEAD
         logger.error(f"robot: {robot}")
         logger.error(f"other robot: {other_robot}")
 
         pathfinder.draw_maze(self.labyrinth, path_robo1, path_robo2,  "./alphabot_agent/without_col.png")
+=======
+>>>>>>> 29ad9b3 (wip)
         curr_path, other_path = pathfinder.avoid_collision(path_robo1, path_robo2)
 
 

@@ -105,7 +105,6 @@ class AlphaBotAgent(Agent):
             logger.info("Finished the maze !")
         pass
 
-
     class ReceiveOtherRobotArrived(OneShotBehaviour):
         async def run(self):
             msg = await self.receive(timeout=10)
@@ -137,6 +136,7 @@ class AlphaBotAgent(Agent):
                 self.agent.add_behaviour(self.agent.AskPhotoBehaviour(), fromCameraTemplate)
             else:
                 logger.info("Arrived ! Sending info to other robot")
+                self.agent.add_behaviour(self.agent.SendOtherRobotArrived())
 
     class AskPhotoBehaviour(OneShotBehaviour):
         def __init__(self):

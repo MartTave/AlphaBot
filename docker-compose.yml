@@ -41,6 +41,9 @@ services:
       - XMPP_USERNAME=camera_agent
     extra_hosts:
       - "prosody:${PROSODY_IP}"
+    networks:
+      xmpp_network:
+        ipv4_address: 172.20.0.6
 
   prosody:
     image: prosody:latest

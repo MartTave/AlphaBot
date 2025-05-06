@@ -839,7 +839,6 @@ class AlphaBot2(object):
             moy_y /= 4
 
             cell = posToGrid([moy_x, moy_y])
-
             # placing the points
             marker_length = 1.0
             obj_points = np.array([

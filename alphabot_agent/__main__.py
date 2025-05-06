@@ -59,8 +59,8 @@ class BotState(Enum):
     IDLE = "idle"
     EXECUTING = "executing"
 
-def finishMazeLater(agent, now, delta=5):
-    start_time = now + datetime.timedelta(seconds=5)
+def finishMazeLater(agent, now):
+    start_time = now + datetime.timedelta(seconds=1)
     logger.info(f"Finishing maze at {start_time}")
     agent.add_behaviour(agent.FinishMazeBehaviour(start_at=start_time))
 
@@ -112,19 +112,20 @@ class AlphaBotAgent(Agent):
     class ReceiveOtherRobotArrived(OneShotBehaviour):
         async def run(self):
             msg = await self.receive(timeout=10)
-            if msg:
-                if msg.body.startswith("arrived at:"):
-                    logger.info("Got arrived message from other robot !")
-                    self.agent.otherRobotArrived = True
-                    if self.agent.isArrived:
-                        # Both arrived, we can finish in sync !
-                        timestamp_str = msg.body.split(":", 1)[-1].strip()
-                        other_robot_timestamp = datetime.datetime.fromisoformat(timestamp_str)
-                        logger.info(f"Parsed timestamp from other robot: {other_robot_timestamp}")
-                        finishMazeLater(self.agent, other_robot_timestamp)
-                else:
-                    logger.warning(f"Got unknown message from other robot {msg}")
-            self.agent.add_behaviour(self.agent.ReceiveOtherRobotArrived(), fromRobotTemplate)
+            if not msg:
+                self.agent.add_behaviour(self.agent.ReceiveOtherRobotArrived(), fromRobotTemplate)
+                return
+            if msg.body.startswith("arrived at:"):
+                logger.info("Got arrived message from other robot !")
+                self.agent.otherRobotArrived = True
+                if self.agent.isArrived:
+                    # Both arrived, we can finish in sync !
+                    timestamp_str = msg.body.split(":", 1)[-1].strip()
+                    other_robot_timestamp = datetime.datetime.fromisoformat(timestamp_str)
+                    logger.info(f"Parsed timestamp from other robot: {other_robot_timestamp}")
+                    finishMazeLater(self.agent, other_robot_timestamp)
+            else:
+                logger.warning(f"Got unknown message from other robot {msg}")
 
     class ProcessImageBehaviour(OneShotBehaviour):
         def __init__(self, img, quality):

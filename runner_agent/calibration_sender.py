@@ -13,7 +13,7 @@ class CalibrationSender(Agent):
         def __init__(self, recipient_jid):
             super().__init__()
             self.recipient_jid = recipient_jid
-            self.message_body = "<"
+            self.message_body = "start_calibration"
 
         async def run(self):
             msg = Message(to=self.recipient_jid)
@@ -23,7 +23,7 @@ class CalibrationSender(Agent):
             await self.send(msg)
             res = await self.receive(5000)
             print(res)
-    
+
     async def setup(self):
         b = self.SendMessageBehavior(recipient_jid="calibration_agent@prosody")
         self.add_behaviour(b)

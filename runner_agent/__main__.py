@@ -3,6 +3,8 @@ import json
 import logging
 import os
 import ssl
+import time
+
 
 import aiosasl
 import aioxmpp.security_layer
@@ -206,14 +208,22 @@ async def main(target, command_file="/app/src/commands/command.json"):
 
         # Next, run the alphabot controller with commands from the file
         logger.info("Starting alphabot controller to run commands...")
-        alphabot_controller = await run_alphabot_controller(target, commands)
 
-        logger.info("Both operations in progress. Press Ctrl+C to stop.")
-
+        calibration_sender = await startCalibration()
         while any(
-            behavior.is_running for behavior in alphabot_controller.behaviours
+            behavior.is_running for behavior in calibration_sender.behaviours
         ):
             await asyncio.sleep(1)
+
+
+        # alphabot_controller = await run_alphabot_controller(target, commands)
+
+        # logger.info("Both operations in progress. Press Ctrl+C to stop.")
+
+        # while any(
+        #     behavior.is_running for behavior in alphabot_controller.behaviours
+        # ):
+        #     await asyncio.sleep(1)
 
         logger.info("Alphabot controller has completed all instructions.")
 
@@ -223,7 +233,7 @@ async def main(target, command_file="/app/src/commands/command.json"):
         logger.error(f"An error occurred: {e}")
     finally:
         if "alphabot_controller" in locals() and alphabot_controller is not None:
-            await alphabot_controller.stop()
+            await calibration_sender.stop()
         logger.info("All agents stopped.")
 
 

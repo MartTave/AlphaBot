@@ -1,28 +1,32 @@
 {
   "1": {
+    "sensors_min": [300, 300, 300, 300, 300],
+    "sensors_max": [962, 972, 970, 977, 970],
     "arucoId": 12,
     "targetArucoId": 14,
     "forwardCorrection": -1.6,
     "turnSpeed": 15,
-    "turnBrakingTime": 2,
+    "turnBrakingTime": 15,
     "forwardSpeed": 30,
     "forwardBrakingTime": 50,
-    "forwardA": 2.736678841995867,
-    "forwardB": 150.62736920570117,
-    "turnA": 4.9,
-    "turnB": 80
+    "forwardA": 2.5,
+    "forwardB": 100,
+    "turnA": 4.4,
+    "turnB": 105
   },
   "2": {
+    "sensors_min": [300, 300, 300, 300, 300],
+    "sensors_max": [962, 972, 970, 977, 970],
     "arucoId": 13,
     "targetArucoId": 15,
-    "forwardCorrection": -2,
+    "forwardCorrection": 0,
     "turnSpeed": 15,
-    "turnBrakingTime": 13,
+    "turnBrakingTime": 15,
     "forwardSpeed": 30,
     "forwardBrakingTime": 50,
-    "forwardA": 2.916,
-    "forwardB": 130.984,
-    "turnA": 4.792,
-    "turnB": 118.63
+    "forwardA": 2,
+    "forwardB": 100,
+    "turnA": 4.4,
+    "turnB": 70
   }
 }

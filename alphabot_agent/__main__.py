@@ -257,6 +257,7 @@ class AlphaBotAgent(Agent):
             msg = await self.receive(timeout=100)
             logger.error(f"Message is : {msg}")
             if msg:
+                self.agent.robot.updateFromConfig()
                 logger.info(
                     f"[Behavior] Received command ({msg.sender}): {msg.body}"
                 )

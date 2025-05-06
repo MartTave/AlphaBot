@@ -251,6 +251,9 @@ class CameraAgent(agent.Agent):
         # self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
         self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+
+        self.capture.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+        self.capture.set(cv2.CAP_PROP_FOCUS, 0)
         # This is here to force the init the camera feed.
         self.capture.read()
 

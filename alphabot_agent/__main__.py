@@ -24,8 +24,6 @@ from alphabot_agent.alphabotlib.AlphaBot2 import AlphaBot2
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("AlphaBotAgent")
 
-last_photo = None
-
 def match_runner(msg):
     return str(msg.sender).split("/")[0] == "runner@prosody"
 
@@ -222,8 +220,9 @@ class AlphaBotAgent(Agent):
         async def run(self):
             msg = Message(to="camera_agent@prosody")
             msg.set_metadata("performative", "inform")
-            if self.agent.robot.labyrinth is None:
+            if self.last_photo is None:
                 quality = "full quality"
+                self.agent.robot.labyrinth = None
             else:
                 quality = "low quality"
 
@@ -316,8 +315,7 @@ class AlphaBotAgent(Agent):
                 self.agent.robot.calibrateForwardCorrection()
 
             elif command == "solve":
-                self.agent.robot.labyrinth = None
-                self.agent.add_behaviour(self.agent.AskPhotoBehaviour())
+               self.agent.add_behaviour(self.agent.AskPhotoBehaviour())
             elif command.startswith("motor "):
                 try:
                     _, left, right = command.split()

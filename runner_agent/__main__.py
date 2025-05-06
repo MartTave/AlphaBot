@@ -186,46 +186,53 @@ async def startCalibration():
 async def main(target, command_file="/app/src/commands/command.json"):
     os.makedirs("received_photos", exist_ok=True)
 
-    target = f"alpha-pi-4b-agent-{target}@prosody"
-    alphabot_controller = None
-
     with open(command_file, "r") as file:
         data = json.load(file)
-
     commands = data["commands"]
 
+    # First, send the scan command to gate_handler
+    logger.info("Sending scan command to gate handler...")
+    # scan_result = await run_scan_command_sender()
+
+    # if scan_result:
+    #     logger.info(f"Scan completed with result: {scan_result}")
+    # else:
+    #     logger.warning("Scan command completed but no result was returned")
+
+    # Start all controllers concurrently
+    target_ids = target.split(",")
+    controllers = []
+    running_tasks = []
+
     try:
-        # First, send the scan command to gate_handler
-        logger.info("Sending scan command to gate handler...")
-        # scan_result = await run_scan_command_sender()
+        # Start all controllers concurrently
+        for target_id in target_ids:
+            target_bot = f"alpha-pi-4b-agent-{target_id}@prosody"
+            logger.info(f"Starting alphabot controller {target_bot} to run commands...")
+            alphabot_controller = await run_alphabot_controller(target_bot, commands)
+            controllers.append(alphabot_controller)
 
-        # if scan_result:
-        #     logger.info(f"Scan completed with result: {scan_result}")
-        # else:
-        #     logger.warning("Scan command completed but no result was returned")
+        logger.info(f"Started {len(controllers)} controllers concurrently. Press Ctrl+C to stop.")
 
-        # Next, run the alphabot controller with commands from the file
-        logger.info("Starting alphabot controller to run commands...")
-        alphabot_controller = await run_alphabot_controller(target, commands)
-
-        logger.info("Both operations in progress. Press Ctrl+C to stop.")
-
+        # Wait for all controllers to complete their instructions
         while any(
-            behavior.is_running for behavior in alphabot_controller.behaviours
+            any(behavior.is_running for behavior in controller.behaviours)
+            for controller in controllers
         ):
             await asyncio.sleep(1)
 
-        logger.info("Alphabot controller has completed all instructions.")
+        logger.info("All alphabot controllers have completed their instructions.")
 
     except KeyboardInterrupt:
         logger.info("Received keyboard interrupt. Shutting down...")
     except Exception as e:
         logger.error(f"An error occurred: {e}")
     finally:
-        if "alphabot_controller" in locals() and alphabot_controller is not None:
-            await alphabot_controller.stop()
+        # Stop all controllers
+        for controller in controllers:
+            if controller is not None:
+                await controller.stop()
         logger.info("All agents stopped.")
-
 
 if __name__ == "__main__":
     asyncio.run(main(target=TARGET))

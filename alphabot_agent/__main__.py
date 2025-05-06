@@ -14,7 +14,7 @@ import datetime
 from PIL import Image
 import aiohttp
 from spade.agent import Agent
-from spade.behaviour import CyclicBehaviour, OneShotBehaviour
+from spade.behaviour import CyclicBehaviour, OneShotBehaviour, TimeoutBehaviour
 from spade.message import Message
 from spade.template import Template
 
@@ -55,14 +55,14 @@ for log_name in ["spade", "aioxmpp", "xmpp"]:
     log.setLevel(logging.INFO)
     log.propagate = True
 
-
 class BotState(Enum):
     IDLE = "idle"
     EXECUTING = "executing"
+
 def finishMazeLater(agent, now, delta=5):
     start_time = now + datetime.timedelta(seconds=5)
-    agent.add_behaviour(agent.FinishMazeBehaviour(), start_at=start_time)
-
+    logger.info(f"Finishing maze at {start_time}")
+    agent.add_behaviour(agent.FinishMazeBehaviour(start_at=start_time))
 
 class AlphaBotAgent(Agent):
     def __init__(self, *args, **kwargs):
@@ -91,19 +91,23 @@ class AlphaBotAgent(Agent):
 
     class SendOtherRobotArrived(OneShotBehaviour):
         async def run(self):
-            msg = Message()
+            msg = Message(to=self.agent.robot.other_xmpp)
             now = datetime.datetime.now()
             timestamp = now.isoformat()
             msg.body = f"arrived at:{timestamp}"
             await self.send(msg)
+            logger.info(f"Sending arrived message to other robot {self.agent.robot.other_xmpp}, awaiting this: {self.agent.otherRobotArrived}")
             if self.agent.otherRobotArrived:
                 finishMazeLater(self.agent, now)
 
-    class FinishMazeBehaviour(OneShotBehaviour):
+    class FinishMazeBehaviour(TimeoutBehaviour):
+        def __init__(self, start_at) -> None:
+            super().__init__(start_at=start_at)
+
         async def run(self):
+            logger.info("WE CAN FINISH THE MAZE !")
             self.agent.robot.safeForward(200, blocking=True)
-            logger.info("Finished the maze !")
-        pass
+            # logger.info("Finished the maze !")
 
     class ReceiveOtherRobotArrived(OneShotBehaviour):
         async def run(self):
@@ -113,7 +117,7 @@ class AlphaBotAgent(Agent):
                 return
             if msg.body.startswith("arrived at:"):
                 logger.info("Got arrived message from other robot !")
-                self.agent.otherArrived = True
+                self.agent.otherRobotArrived = True
                 if self.agent.isArrived:
                     # Both arrived, we can finish in sync !
                     timestamp_str = msg.body.split(":", 1)[-1].strip()
@@ -130,8 +134,8 @@ class AlphaBotAgent(Agent):
             self.quality = quality
 
         async def run(self):
-            isArrived = self.agent.robot.processImage(self.img, self.quality)
-            if not isArrived:
+            self.agent.isArrived = self.agent.robot.processImage(self.img, self.quality)
+            if not self.agent.isArrived:
                 logger.info("Still not arrived to dest, looping one more time")
                 self.agent.add_behaviour(self.agent.AskPhotoBehaviour(), fromCameraTemplate)
             else:

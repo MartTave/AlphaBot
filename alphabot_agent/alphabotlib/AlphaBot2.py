@@ -42,9 +42,9 @@ class AlphaBot2(object):
         self.other_target = None
 
         self.botN = botn.split("-")[-1]
-
+        self.stem = botn[:-len(self.botN)-1]
         self.otherN = "1" if self.botN == "2" else "2"
-
+        self.other_xmpp = self.stem + "-" + self.otherN + "@prosody"
         self.configPath = "./alphabot_agent/config.json"
 
         self.loadConfig()

@@ -514,7 +514,6 @@ class AlphaBot2(object):
                         break
                     else:
                         backward()
->>>>>>> c832e0b (Done malade mode)
             self.stop()
 
         thread = threading.Thread(target=run_for_time, args=(duration,))

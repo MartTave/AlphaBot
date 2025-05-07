@@ -932,10 +932,12 @@ class AlphaBot2(object):
 
         if not all(map(lambda x: len(x) == 4, [robot, other_robot])):
             if self.aruco_retry_counter < self.aruco_max_retry:
-                logger.error(f"ARUCOS NOT FOUND {self.aruco_retry_counter}->{self.aruco_max_retry}")
+                logger.warning(f"ARUCOS NOT FOUND {self.aruco_retry_counter}->{self.aruco_max_retry}")
                 self.aruco_retry_counter += 1
             else:
-                logger.error(f"ARUCOS NOT FOUND AND RETRY COUNTER EXCEEDED..")
+                self.aruco_retry_counter = 0
+                logger.warning("Activating malade mode to unstuck")
+                self.safeForward(mm=1500, blocking=True, allowBackward=True)
 
         return self.runMaze(robot, self.target, other_robot, self.other_target, (grid_left, grid_top), (grid_right, grid_down))
 

@@ -825,8 +825,42 @@ class AlphaBot2(object):
                 logger.info(section_tab)
                 self.labyrinth = np.reshape(section_tab, (grid_width, grid_height)).T
             return self.labyrinth
+        
+        def get_par_pos(x,y,smol=False):
+            if smol:
+                x = x * 2.25
+                y = y * 2.25
+        
+            pov_x = 900
+            pov_y = 490
+        
+            cross_top_wall_x = 1775
+            cross_ground_x = 1711
+            par_x = cross_top_wall_x - cross_ground_x
+            dist_mes_x = cross_top_wall_x - pov_x
+            dist_from_pov_x = x - pov_x
+            par_x_out = par_x / dist_mes_x * dist_from_pov_x
+        
+            cross_top_wall_y = 45
+            cross_ground_y = 12
+            par_y = cross_top_wall_y - cross_ground_y
+            dist_mes_y = cross_top_wall_y - pov_y
+            dist_from_pov_y = y - pov_y
+            par_y_out = - par_y / dist_mes_y * dist_from_pov_y
+        
+            print(par_x_out, par_y_out)
+            corrected_x = int(x - par_x_out)
+            corrected_y = int(y - par_y_out)
 
-        def where_aruco(img, aruco_id):
+            if smol:
+                corrected_x = corrected_x / 2.25
+                corrected_y = corrected_y / 2.25
+            
+            print(corrected_x, corrected_y)
+
+            return corrected_x, corrected_y
+        
+        def where_aruco(img, aruco_id, robo = False):
 
             # detection of all arucos
             dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
@@ -856,6 +890,9 @@ class AlphaBot2(object):
 
             moy_x /= 4
             moy_y /= 4
+
+            if robo:
+                moy_x, moy_y = get_par_pos(moy_x, moy_y) if quality == "full quality" else get_par_pos(moy_x, moy_y, True)
 
             cell = posToGrid([moy_x, moy_y])
             # placing the points
@@ -892,6 +929,7 @@ class AlphaBot2(object):
             return cell, yaw_deg, moy_x, moy_y
 
         def detect_targets(img):
+            print(self.target_aruco_id)
             if self.target is None:
                 self.target = where_aruco(img, self.target_aruco_id)[0]
                 self.other_target = where_aruco(img, self.other_target_aruco_id)[0]
@@ -900,8 +938,8 @@ class AlphaBot2(object):
             logger.error(f"self.robot_aruco_id {self.robot_aruco_id}")
             logger.error(f"self.other_aruco_id {self.other_aruco_id}")
 
-            robot = where_aruco(img, self.robot_aruco_id)
-            other_robot = where_aruco(img, self.other_aruco_id)
+            robot = where_aruco(img, self.robot_aruco_id, True)
+            other_robot = where_aruco(img, self.other_aruco_id, True)
             return robot, other_robot
 
 
@@ -961,8 +999,9 @@ class AlphaBot2(object):
         pathfinder.draw_maze(self.labyrinth, path_robo1, path_robo2,  "./alphabot_agent/without_col.png")
         curr_path, other_path = pathfinder.avoid_collision(path_robo1, path_robo2)
         print(curr_path)
+        print(len(robot))
 
-        if len(curr_path) > 1:
+        if len(curr_path) > 1 and len(robot) > 3:
             w = abs(top_left[0] - bottom_right[0]) / 11
             h = abs(top_left[1] - bottom_right[1]) / 3
 
@@ -972,6 +1011,7 @@ class AlphaBot2(object):
             factor = w
 
             angle = self.get_corr_angle_dist(robot, next_x, next_y, factor)
+            logger.error(f"ROBOT: {robot}")
             logger.error(f"ANGLE: {angle}")
 
             json_commands = pathfinder.get_json_from_path(curr_path, angle)

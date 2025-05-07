@@ -488,6 +488,7 @@ class AlphaBot2(object):
                 DR_status = GPIO.input(self.DR)
                 DL_status = GPIO.input(self.DL)
                 if (DL_status == 0) or (DR_status == 0):
+                    logger.error(f"left: {DL_status}, right: {DR_status}")
                     break
             self.stop()
 

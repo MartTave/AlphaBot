@@ -922,7 +922,7 @@ class AlphaBot2(object):
         grid_y = int((pos[1]-grid_top)/section_height)
         return grid_x, grid_y
 
-    def get_corr_angle_dist(robot, next_x, next_y):
+    def get_corr_angle_dist(robot, next_x, next_y, fact):
         import math
         rx = robot[2]
         ry = robot[3]
@@ -930,18 +930,22 @@ class AlphaBot2(object):
         dx = next_x - rx
         dy = next_y - ry
 
-        # atan2 returns angle in radians, convert to degrees
-        angle_aligned = math.degrees(math.atan2(dx, dy))
+        # Standard angle: 0° is along positive X, rotate it -90° to align 0° with -Y
+        angle_to_target = math.degrees(math.atan2(dy, dx)) + 90
 
-        correcting_angle = angle_aligned - robot[1]
+        # correcting_angle = angle difference between where the robot is facing and where it should face
+        correcting_angle = angle_to_target - robot[1]
 
-        # Normalize the angle to the range [-180, 180]
+        # Normalize again to [-180, 180]
         if correcting_angle > 180:
             correcting_angle -= 360
         elif correcting_angle < -180:
             correcting_angle += 360
 
-        return correcting_angle
+        hyp = math.sqrt(dx*dx + dy*dy)
+        dist = hyp / fact
+
+        return correcting_angle, dist
 
     def runMaze(self, robot, target, other_robot, other_target, top_left, bottom_right):
         pathfinder = Pathfinding()
@@ -966,7 +970,9 @@ class AlphaBot2(object):
         next_x = (curr_path[1] % 11) * w + (w/2) + top_left[0]
         next_y = int(curr_path[1] / 11) * h + (h/2) + top_left[1]
 
-        angle = self.get_corr_angle_dist(robot, next_x, next_y)
+        factor = w
+
+        angle = self.get_corr_angle_dist(robot, next_x, next_y, factor)
 
         json_commands = pathfinder.get_json_from_path(curr_path, angle)
 

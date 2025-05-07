@@ -636,6 +636,10 @@ class AlphaBot2(object):
         # cv2.destroyAllWindows()
         #####
 
+    def draw_mark(img, x, y, color = [0, 255, 0], thickness=3, markerSize=20):
+        cv2.drawMarker(img, (x, y), color=color, thickness=thickness, 
+        markerType= cv2.MARKER_TILTED_CROSS, line_type=cv2.LINE_AA, markerSize=markerSize)
+
     def _getLines(self, img, rho, theta, threshold, min_line_length, max_line_gap, angle_thresh):
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 

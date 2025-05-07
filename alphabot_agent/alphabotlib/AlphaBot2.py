@@ -922,7 +922,7 @@ class AlphaBot2(object):
         grid_y = int((pos[1]-grid_top)/section_height)
         return grid_x, grid_y
 
-    def get_corr_angle_dist(robot, next_x, next_y, fact):
+    def get_corr_angle_dist(self, robot, next_x, next_y, fact):
         import math
         rx = robot[2]
         ry = robot[3]
@@ -943,6 +943,7 @@ class AlphaBot2(object):
             correcting_angle += 360
 
         hyp = math.sqrt(dx*dx + dy*dy)
+
         dist = hyp / fact
 
         return correcting_angle, dist
@@ -959,19 +960,23 @@ class AlphaBot2(object):
 
         pathfinder.draw_maze(self.labyrinth, path_robo1, path_robo2,  "./alphabot_agent/without_col.png")
         curr_path, other_path = pathfinder.avoid_collision(path_robo1, path_robo2)
+        print(curr_path)
 
+        if len(curr_path) > 1:
+            w = abs(top_left[0] - bottom_right[0]) / 11
+            h = abs(top_left[1] - bottom_right[1]) / 3
 
-        w = (top_left[0] - bottom_right[0]) / 11
-        h = (top_left[1] - bottom_right[1]) / 3
+            next_x = (curr_path[1] % 11) * w + (w/2) + top_left[0]
+            next_y = int(curr_path[1] / 11) * h + (h/2) + top_left[1]
 
-        next_x = (curr_path[1] % 11) * w + (w/2) + top_left[0]
-        next_y = int(curr_path[1] / 11) * h + (h/2) + top_left[1]
+            factor = w
 
-        factor = w
+            angle = self.get_corr_angle_dist(robot, next_x, next_y, factor)
+            logger.error(f"ANGLE: {angle}")
 
-        angle = self.get_corr_angle_dist(robot, next_x, next_y, factor)
-
-        json_commands = pathfinder.get_json_from_path(curr_path, angle)
+            json_commands = pathfinder.get_json_from_path(curr_path, angle)
+        else:
+            json_commands = {"commands":[]}
 
         b64_image = pathfinder.draw_on_pic(curr_path, other_path, top_left, bottom_right)
 

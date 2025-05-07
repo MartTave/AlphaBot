@@ -922,19 +922,24 @@ class AlphaBot2(object):
         grid_y = int((pos[1]-grid_top)/section_height)
         return grid_x, grid_y
 
-    def get_corr_angle_dist(self, robot, next_x, next_y):
+    def get_corr_angle_dist(robot, next_x, next_y):
         import math
         rx = robot[2]
         ry = robot[3]
 
-        dx = next_x-rx
-        dy = next_y-ry
+        dx = next_x - rx
+        dy = next_y - ry
 
-        try:
-            angle_aligned = - math.degrees(math.atan(dx/dy))
-        except:
-              angle_aligned = 90 if next_x > rx else -90
+        # atan2 returns angle in radians, convert to degrees
+        angle_aligned = math.degrees(math.atan2(dx, dy))
+
         correcting_angle = angle_aligned - robot[1]
+
+        # Normalize the angle to the range [-180, 180]
+        if correcting_angle > 180:
+            correcting_angle -= 360
+        elif correcting_angle < -180:
+            correcting_angle += 360
 
         return correcting_angle
 

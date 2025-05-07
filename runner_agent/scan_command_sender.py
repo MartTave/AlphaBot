@@ -11,7 +11,7 @@ class ScanCommandSender(Agent):
         def __init__(self, recipient_jid):
             super().__init__()
             self.recipient_jid = recipient_jid
-            self.message_body = "scan"
+            self.message_body = "command:scan"
 
         async def run(self):
             msg = Message(to=self.recipient_jid)
@@ -19,14 +19,14 @@ class ScanCommandSender(Agent):
             msg.body = self.message_body
             print(f"Sending 'scan' command to {self.recipient_jid}...")
             await self.send(msg)
-            
+
             # Wait for a response with a 5-second timeout
             response = await self.receive(5000)
             if response:
                 print(f"Received response: {response}")
             else:
                 print("No response received within timeout period")
-    
+
     async def setup(self):
         b = self.SendScanCommandBehaviour(recipient_jid="gate_handler@prosody")
         self.add_behaviour(b)

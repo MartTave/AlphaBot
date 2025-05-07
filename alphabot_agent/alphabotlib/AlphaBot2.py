@@ -47,6 +47,9 @@ class AlphaBot2(object):
         self.other_xmpp = self.stem + "-" + self.otherN + "@prosody"
         self.configPath = "./alphabot_agent/config.json"
 
+        self.aruco_max_retry = 2
+        self.aruco_retry_counter = 0
+
         self.loadConfig()
 
         self.GPIOSetup(ain1, ain2, bin1, bin2, ena, enb)
@@ -897,19 +900,21 @@ class AlphaBot2(object):
                 self.other_target = where_aruco(img, self.other_target_aruco_id)[0]
 
         def detect_positions(img):
-            logger.error(f"self.robot_aruco_id {self.robot_aruco_id}")
-            logger.error(f"self.other_aruco_id {self.other_aruco_id}")
-
             robot = where_aruco(img, self.robot_aruco_id)
             other_robot = where_aruco(img, self.other_aruco_id)
             return robot, other_robot
 
-
         detect_targets(cropped)
+
         labyrinth = find_labyrinth(cropped)
         robot, other_robot = detect_positions(cropped)
 
-        logger.info(f"Start is : {robot[0]} and other is : {other_robot[0]}")
+        if not all(map(lambda x: len(x) == 4, [robot, other_robot])):
+            if self.aruco_retry_counter < self.aruco_max_retry:
+                logger.error(f"ARUCOS NOT FOUND {self.aruco_retry_counter}->{self.aruco_max_retry}")
+                self.aruco_retry_counter += 1
+            else:
+                logger.error(f"ARUCOS NOT FOUND AND RETRY COUNTER EXCEEDED..")
 
         return self.runMaze(robot, self.target, other_robot, self.other_target, (grid_left, grid_top), (grid_right, grid_down))
 

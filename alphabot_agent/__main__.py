@@ -290,8 +290,9 @@ class AlphaBotAgent(Agent):
             command = command.strip().lower()
             args = command.split()[1:]
             command = command.split()[0]
-
-            if command == "forward":
+            if command == "malade":
+                self.agent.robot.safeForward(mm=1500, blocking=True, allowBackward=True)
+            elif command == "forward":
                 distance = args[0]
                 distance = int(distance)
                 logger.info(

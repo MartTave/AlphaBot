@@ -205,8 +205,6 @@ class AlphaBot2(object):
         print("Max: ", self.TR.calibratedMax)
 
     def fullCalibration(self, turn_speed=15, forward_speed=30):
-        self.forward_speed = forward_speed
-        self.turn_speed = turn_speed
         logger.info(
             "Press joystick center to start calibration. We will start by the sensors"
         )
@@ -216,9 +214,9 @@ class AlphaBot2(object):
         logger.info("Sensor calibration done ! Doing correction calibration")
         self.calibrateForwardCorrection()
         logger.info("Sensors calibration done ! Doing forward calibration...")
-        self.calibrateForward(forward_speed)
+        self.calibrateForward()
         logger.info("Forward calibration done ! Doing turn calibration...")
-        self.calibrateTurn(turn_speed)
+        self.calibrateTurn()
         logger.info("Turn calibration done ! Doing correction calibration...")
         logger.info("Calibration done !")
 
@@ -468,31 +466,55 @@ class AlphaBot2(object):
 
         pass
 
-    def safeForward(self, mm=100, blocking=False):
-        if self.forwardEquation:
-            duration = self.forwardEquation(mm - self.forward_braking_time) / 1000
-        else:
-            duration = self.forward_speed * mm * 150
-            duration += self.motor_startup_forward
-            logger.warning(
-                "No forward calibration done ! Duration will be aproximative at best !"
-            )
+    def safeForward(self, mm=100, blocking=False, allowBackward=False):
+        assert self.forwardEquation is not None
+        duration = self.forwardEquation(mm - self.forward_braking_time) / 1000
 
-        self.PWMA.ChangeDutyCycle(self.forward_speed)
-        self.PWMB.ChangeDutyCycle(self.forward_speed + self.forwardCorrection)
-        GPIO.output(self.AIN1, GPIO.LOW)
-        GPIO.output(self.AIN2, GPIO.HIGH)
-        GPIO.output(self.BIN1, GPIO.LOW)
-        GPIO.output(self.BIN2, GPIO.HIGH)
+        def backward():
+            self.PWMA.ChangeDutyCycle(self.forward_speed)
+            self.PWMB.ChangeDutyCycle(self.forward_speed)
+            GPIO.output(self.AIN1, GPIO.HIGH)
+            GPIO.output(self.AIN2, GPIO.LOW)
+            GPIO.output(self.BIN1, GPIO.HIGH)
+            GPIO.output(self.BIN2, GPIO.LOW)
+            time.sleep(0.1)
+            self.left(self.turn_speed)
+            time.sleep(0.2)
+
+
+        def forward():
+            self.PWMA.ChangeDutyCycle(self.forward_speed)
+            self.PWMB.ChangeDutyCycle(self.forward_speed + self.forwardCorrection)
+            GPIO.output(self.AIN1, GPIO.LOW)
+            GPIO.output(self.AIN2, GPIO.HIGH)
+            GPIO.output(self.BIN1, GPIO.LOW)
+            GPIO.output(self.BIN2, GPIO.HIGH)
 
         def run_for_time(duration):
             start_time = time.time()
+            old_dr = -1
+            old_dl = -1
+            res = True
             while time.time() - start_time < duration:
                 DR_status = GPIO.input(self.DR)
                 DL_status = GPIO.input(self.DL)
-                if (DL_status == 0) or (DR_status == 0):
-                    logger.error(f"left: {DL_status}, right: {DR_status}")
-                    break
+                if old_dl == DL_status and old_dr == DR_status:
+                    continue
+                old_dl = DL_status
+                old_dr = DR_status
+                if (DL_status == 1) and (DR_status == 1):
+                    forward()
+                if (DL_status == 1) and (DR_status == 0):
+                    self.right(self.turn_speed)
+                if (DL_status == 0) and (DR_status == 1):
+                    self.left(self.turn_speed)
+                if (DL_status == 0) and (DR_status == 0):
+                    if not allowBackward:
+                        res = False
+                        break
+                    else:
+                        backward()
+>>>>>>> c832e0b (Done malade mode)
             self.stop()
 
         thread = threading.Thread(target=run_for_time, args=(duration,))

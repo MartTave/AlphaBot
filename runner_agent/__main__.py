@@ -192,12 +192,12 @@ async def main(target, command_file="/app/src/commands/command.json"):
 
     # First, send the scan command to gate_handler
     logger.info("Sending scan command to gate handler...")
-    # scan_result = await run_scan_command_sender()
+    scan_result = await run_scan_command_sender()
 
-    # if scan_result:
-    #     logger.info(f"Scan completed with result: {scan_result}")
-    # else:
-    #     logger.warning("Scan command completed but no result was returned")
+    if scan_result:
+        logger.info(f"Scan completed with result: {scan_result}")
+    else:
+        logger.warning("Scan command completed but no result was returned")
 
     # Start all controllers concurrently
     target_ids = target.split(",")

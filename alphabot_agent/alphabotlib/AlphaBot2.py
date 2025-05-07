@@ -975,7 +975,7 @@ class AlphaBot2(object):
         labyrinth = find_labyrinth(cropped)
         robot, other_robot = detect_positions(cropped)
 
-        if not all(map(lambda x: len(x) == 4, [robot, other_robot])):
+        if not len(robot) == 4:
             if self.aruco_retry_counter < self.aruco_max_retry:
                 logger.warning(f"ARUCOS NOT FOUND {self.aruco_retry_counter}->{self.aruco_max_retry}")
                 self.aruco_retry_counter += 1

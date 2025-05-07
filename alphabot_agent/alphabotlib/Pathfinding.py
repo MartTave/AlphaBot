@@ -203,7 +203,7 @@ class Pathfinding:
                     return idx
         return False
 
-    def get_json_from_path(self, path, towards=0):
+    def get_json_from_path(self, path, towards=None):
         prev = ""
         orientation = ""
         inst = []
@@ -219,8 +219,8 @@ class Pathfinding:
             else:
                 print("uh oh")
             if prev == "":
-                if towards != 0: inst.append(f"rotate:{towards}")
-                inst.append("forward:1")
+                if towards != None: inst.append(f"rotate:{towards[0]}")
+                inst.append(f"forward:{towards[1]}")
             else:
                 if prev == orientation:
                     inst.append("forward:1")

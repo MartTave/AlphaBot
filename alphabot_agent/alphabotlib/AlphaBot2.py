@@ -41,7 +41,12 @@ class AlphaBot2(object):
         self.target = None
         self.other_target = None
 
+
+
         self.botN = botn.split("-")[-1]
+
+        self.hasPrio = None
+
         self.stem = botn[:-len(self.botN)-1]
         self.otherN = "1" if self.botN == "2" else "2"
         self.other_xmpp = self.stem + "-" + self.otherN + "@prosody"
@@ -127,6 +132,13 @@ class AlphaBot2(object):
         with open(self.configPath, "w") as file:
             file.write(json.dumps(self.config_file))
 
+    def resetForNewRun(self):
+        self.labyrinth = None
+        self.hasPrio = None
+        self.target = None
+        self.other_target = None
+        logger.info("Resetted for a new run of the labyrinth !")
+
     def GPIOSetup(self, ain1, ain2, bin1, bin2, ena, enb):
         self.AIN1 = ain1
         self.AIN2 = ain2
@@ -180,7 +192,6 @@ class AlphaBot2(object):
         # Get actual width/height returned
         actual_width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         actual_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-        print(f"Actual resolution: {actual_width}x{actual_height}")
 
         time.sleep(0.5)
 
@@ -200,9 +211,6 @@ class AlphaBot2(object):
         time.sleep(0.5)
         self.TR.calibrate()
         self.stop()
-        print("Calibrated, values:")
-        print("Min: ", self.TR.calibratedMin)
-        print("Max: ", self.TR.calibratedMax)
 
     def fullCalibration(self, turn_speed=15, forward_speed=30):
         logger.info(
@@ -271,7 +279,7 @@ class AlphaBot2(object):
             runUntilLine()
             self.stop()
 
-        print("Waiting for joystick press to start the turn calibration")
+        logger.info("Waiting for joystick press to start the turn calibration")
         self.waitForJoystickCenter()
         time.sleep(0.5)
 
@@ -286,7 +294,7 @@ class AlphaBot2(object):
             time.sleep(0.5)
             turnBackToLine()
             if a != angles[-1]:
-                print("Waiting for joystick for next turn")
+                logger.info("Waiting for joystick for next turn")
                 self.waitForJoystickCenter()
                 time.sleep(0.5)
 
@@ -637,7 +645,7 @@ class AlphaBot2(object):
         #####
 
     def draw_mark(img, x, y, color = [0, 255, 0], thickness=3, markerSize=20):
-        cv2.drawMarker(img, (x, y), color=color, thickness=thickness, 
+        cv2.drawMarker(img, (x, y), color=color, thickness=thickness,
         markerType= cv2.MARKER_TILTED_CROSS, line_type=cv2.LINE_AA, markerSize=markerSize)
 
     def _getLines(self, img, rho, theta, threshold, min_line_length, max_line_gap, angle_thresh):
@@ -853,41 +861,38 @@ class AlphaBot2(object):
                 logger.info(section_tab)
                 self.labyrinth = np.reshape(section_tab, (grid_width, grid_height)).T
             return self.labyrinth
-        
+
         def get_par_pos(x,y,smol=False):
             if smol:
                 x = x * 2.25
                 y = y * 2.25
-        
+
             pov_x = 900
             pov_y = 490
-        
+
             cross_top_wall_x = 1775
             cross_ground_x = 1711
             par_x = cross_top_wall_x - cross_ground_x
             dist_mes_x = cross_top_wall_x - pov_x
             dist_from_pov_x = x - pov_x
             par_x_out = par_x / dist_mes_x * dist_from_pov_x
-        
+
             cross_top_wall_y = 45
             cross_ground_y = 12
             par_y = cross_top_wall_y - cross_ground_y
             dist_mes_y = cross_top_wall_y - pov_y
             dist_from_pov_y = y - pov_y
             par_y_out = - par_y / dist_mes_y * dist_from_pov_y
-        
-            print(par_x_out, par_y_out)
+
             corrected_x = int(x - par_x_out)
             corrected_y = int(y - par_y_out)
 
             if smol:
                 corrected_x = corrected_x / 2.25
                 corrected_y = corrected_y / 2.25
-            
-            print(corrected_x, corrected_y)
 
             return corrected_x, corrected_y
-        
+
         def where_aruco(img, aruco_id, robo = False):
 
             # detection of all arucos
@@ -957,14 +962,12 @@ class AlphaBot2(object):
             return cell, yaw_deg, moy_x, moy_y
 
         def detect_targets(img):
-            print(self.target_aruco_id)
             if self.target is None:
                 self.target = where_aruco(img, self.target_aruco_id)[0]
+            if self.other_target is None:
                 self.other_target = where_aruco(img, self.other_target_aruco_id)[0]
 
         def detect_positions(img):
-            logger.error(f"self.robot_aruco_id {self.robot_aruco_id}")
-            logger.error(f"self.other_aruco_id {self.other_aruco_id}")
 
             robot = where_aruco(img, self.robot_aruco_id, True)
             other_robot = where_aruco(img, self.other_aruco_id, True)
@@ -1029,12 +1032,18 @@ class AlphaBot2(object):
         path_robo1 = pathfinder.get_path_from_maze(self.labyrinth, robot[0], target)
         path_robo2 = pathfinder.get_path_from_maze(self.labyrinth, other_robot[0], other_target)
 
-        logger.error(f"other robot: {other_robot}")
+        if self.hasPrio is None:
+            if len(path_robo1) > len(path_robo2):
+                self.hasPrio = True
+                logger.info("I have priority because I have a longer path")
+            elif len(path_robo1) < len(path_robo2):
+                self.hasPrio = False
+                logger.info("I do not have priority because I have a shorter path")
+            else:
+                self.hasPrio = self.botN == "1"
+                logger.info(f"I {'do not' if not self.hasPrio else ''} have priority because of my bot number")
 
-        pathfinder.draw_maze(self.labyrinth, path_robo1, path_robo2,  "./alphabot_agent/without_col.png")
-        curr_path, other_path = pathfinder.avoid_collision(path_robo1, path_robo2)
-        print(curr_path)
-        print(len(robot))
+        curr_path, other_path, myPathReduced = pathfinder.avoid_collision(curr_path=path_robo1, other_path=path_robo2, hasPrio=self.hasPrio)
 
         if len(curr_path) > 1 and len(robot) > 3:
             w = abs(top_left[0] - bottom_right[0]) / 11
@@ -1046,8 +1055,6 @@ class AlphaBot2(object):
             factor = w
 
             angle = self.get_corr_angle_dist(robot, next_x, next_y, factor)
-            logger.error(f"ROBOT: {robot}")
-            logger.error(f"ANGLE: {angle}")
 
             json_commands = pathfinder.get_json_from_path(curr_path, angle)
         else:
@@ -1068,12 +1075,14 @@ class AlphaBot2(object):
         )
         arrived = False
         toExecute = []
-        if len(json_commands["commands"]) == 2:
+        if  not myPathReduced and len(json_commands["commands"]) == 2:
             logger.warning("Reducing the number of command, removing the last to stop before target")
             toExecute = json_commands["commands"][:-1]
             arrived = True
         else:
             toExecute = json_commands["commands"][:2]
+
+        logger.info(f"Commands to execute : {toExecute}")
 
         for i in toExecute:
             # logger.info(i["command"])

@@ -1,8 +1,8 @@
 {
   "commands": [
     {
-      "command": "solve",
-      "args": []
+      "command": "forward",
+      "args": ["200"]
     }
   ]
 }

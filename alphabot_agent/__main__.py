@@ -161,11 +161,11 @@ class AlphaBotAgent(Agent):
             # Wait for the metadata message first
             metadata_msg = await self.receive(timeout=5)
             if not metadata_msg:
-                print("No metadata received within timeout period")
+                logger.error("No metadata received within timeout period")
                 return False
 
             if metadata_msg.get_metadata("content_type") != "image_metadata":
-                print(f"Unexpected message type: {metadata_msg.get_metadata('content_type')}")
+                logger.error(f"Unexpected message type: {metadata_msg.get_metadata('content_type')}")
                 return False
 
             # Parse metadata from message metadata instead of body
@@ -174,27 +174,24 @@ class AlphaBotAgent(Agent):
                 self.total_chunks = int(metadata_msg.get_metadata("total_chunks"))
                 self.total_size = int(metadata_msg.get_metadata("total_size"))
 
-                # Print the descriptive message from the body
-                print(metadata_msg.body)
-
             except Exception as e:
-                print(f"Error parsing metadata: {e}")
+                logger.error(f"Error parsing metadata: {e}")
                 return False
 
             # Receive all chunks
             while self.received_chunks < self.total_chunks:
                 # Check timeout
                 if datetime.datetime.now() - start_time > timeout_delta:
-                    print(f"Timeout receiving chunks. Got {self.received_chunks} of {self.total_chunks}")
+                    logger.error(f"Timeout receiving chunks. Got {self.received_chunks} of {self.total_chunks}")
                     return False
 
                 chunk_msg = await self.receive(timeout=5)
                 if not chunk_msg:
-                    print("No chunk received within timeout")
+                    logger.error("No chunk received within timeout")
                     continue
 
                 if chunk_msg.get_metadata("content_type") != "image_chunk":
-                    print(f"Unexpected message type: {chunk_msg.get_metadata('content_type')}")
+                    logger.error(f"Unexpected message type: {chunk_msg.get_metadata('content_type')}")
                     continue
 
                 # Store the chunk
@@ -203,7 +200,7 @@ class AlphaBotAgent(Agent):
                 self.received_chunks += 1
 
                 if self.received_chunks % 5 == 0:  # Log progress every 5 chunks
-                    print(f"Received {self.received_chunks}/{self.total_chunks} chunks")
+                    logger.info(f"Received {self.received_chunks}/{self.total_chunks} chunks")
 
             # Reassemble the complete image
             if len(self.image_chunks) == self.total_chunks:
@@ -213,13 +210,13 @@ class AlphaBotAgent(Agent):
 
                 if len(reassembled) == self.total_size:
                     self.complete_image = reassembled
-                    print("Image reassembled successfully")
+                    logger.info("Image reassembled successfully")
                     return True
                 else:
-                    print(f"Reassembled size ({len(reassembled)}) doesn't match expected size ({self.total_size})")
+                    logger.error(f"Reassembled size ({len(reassembled)}) doesn't match expected size ({self.total_size})")
                     return False
             else:
-                print(f"Missing chunks. Got {len(self.image_chunks)}/{self.total_chunks}")
+                logger.error(f"Missing chunks. Got {len(self.image_chunks)}/{self.total_chunks}")
                 return False
 
 
@@ -255,7 +252,6 @@ class AlphaBotAgent(Agent):
 
         async def run(self):
             msg = await self.receive(timeout=100)
-            logger.error(f"Message is : {msg}")
             if msg:
                 self.agent.robot.updateFromConfig()
                 logger.info(
@@ -326,7 +322,7 @@ class AlphaBotAgent(Agent):
                 self.agent.isArrived = False
                 self.agent.otherRobotArrived = False
 
-                self.agent.robot.labyrinth = None
+                self.agent.robot.resetForNewRun()
                 self.agent.add_behaviour(self.agent.AskPhotoBehaviour())
             elif command.startswith("motor "):
                 try:

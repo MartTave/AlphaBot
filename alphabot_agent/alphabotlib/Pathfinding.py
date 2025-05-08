@@ -163,36 +163,27 @@ class Pathfinding:
 
         plt.savefig(filename)
 
-    def avoid_collision(self, curr_path, other_path, margin=1):
-        # We give priority to the longest path
-        hasPrio = len(curr_path) > len(other_path)
+    def avoid_collision(self, curr_path, other_path, hasPrio = False):
 
-        logger.info(f"Path is : {curr_path}")
-        logger.info(f"Other path is : {other_path}")
+        myPathReduced = False
+        def hasCollision(path1, path2):
+            for idx in path1:
+                if idx in path2:
+                    return True
+            return False
 
-        for i in range(0, len(curr_path)):
-            # Bounding the index to other path length to avoid out of bound, but still check as if the robot was stopped at his target
-            other_i = min(i, len(other_path) - margin - 1)
+        reduced = 0
 
-            curr_indexes = curr_path[i - margin:i + margin]
-            other_indexes = other_path[other_i - margin:other_i + margin]
-
-            for j, n in enumerate(curr_indexes):
-                if n in other_indexes:
-                    logger.warning("We haave a collision")
-                    # We have a collision :(
-                    # We need to move the end of the path of the robot who has not the priority
-                    if hasPrio:
-                        res_other = other_path[:i-margin+j]
-                        res = curr_path
-                        print("I have prio, I'm reducing the other path")
-                    else:
-                        res_other = other_path
-                        res = curr_path[:i-margin+j]
-                        print("I don't have prio, I'm reducing my path")
-                    return res, res_other
-
-        return curr_path, other_path
+        while hasCollision(curr_path, other_path):
+            if hasPrio:
+                other_path = other_path[:-1]
+                reduced += 1
+            else:
+                myPathReduced = True
+                curr_path = curr_path[:-1]
+                reduced += 1
+        logger.info(f"{'The other robot' if hasPrio else 'My'} path has been reduced of {reduced} cells in order to avoid collision. Updated length : curr: {len(curr_path)} | other: {len(other_path)}")
+        return curr_path, other_path, myPathReduced
 
     def problem_detect(self, path1, path2):
         paths = (path1, path2) if len(path1) < len(path2) else (path2, path1)
@@ -237,7 +228,6 @@ class Pathfinding:
                     inst.append("forward:1")
             prev = orientation
         out = {"commands":[]}
-        logger.error(f"PATH INST: list of instructions {inst}")
         for i in inst:
             cmd = i.split(":")[0]
             arg = i.split(":")[1]

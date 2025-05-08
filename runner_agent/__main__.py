@@ -29,7 +29,6 @@ from .alphabot_controller import AlphabotController
 from .calibration_sender import CalibrationSender
 from .camera_receiver import ReceiverAgent
 
-
 class ScanCommandSender(Agent):
     class SendScanCommandBehaviour(OneShotBehaviour):
         def __init__(self, recipient_jid):
@@ -55,6 +54,22 @@ class ScanCommandSender(Agent):
 
     async def setup(self):
         pass  # We'll add behaviors dynamically
+
+
+class RobotCommandSender(Agent):
+    class SendRobotCommandBehaviour(OneShotBehaviour):
+        def __init__(self, wall_id):
+            super().__init__()
+            self.recipient_jid = "robot_arm_agent@prosody"
+            self.message_body = f"{wall_id}"
+            self.result = None
+
+        async def run(self):
+            msg = Message(to=self.recipient_jid)
+            msg.set_metadata("performative", "inform")
+            msg.body = self.message_body
+            logger.info(f"Sending 'move wall' command to {self.recipient_jid}...")
+            await self.send(msg)
 
 
 async def run_scan_command_sender():
@@ -183,6 +198,37 @@ async def startCalibration():
     return calib_sender
 
 
+
+async def run_remove_wall_e(wall_id):
+    """Initialize and run the scan command sender agent"""
+
+    xmpp_password = os.getenv("XMPP_PASSWORD")
+
+
+    # Create and start the agent
+    robot_arm_sender = RobotCommandSender(XMPP_JID, xmpp_password)
+    await robot_arm_sender.start(auto_register=True)
+
+    # Check if agent started successfully
+    if not robot_arm_sender.is_alive():
+        logger.error("Robot command sender agent couldn't connect.")
+        await robot_arm_sender.stop()
+        return None
+
+
+    # Add and run the scan behavior
+    send_behaviour = robot_arm_sender.SendRobotCommandBehaviour(wall_id)
+    robot_arm_sender.add_behaviour(send_behaviour)
+
+    # Wait for the behavior to complete
+    while send_behaviour.is_running:
+        await asyncio.sleep(0.5)
+
+    # Stop the agent
+    await robot_arm_sender.stop()
+
+
+
 async def main(target, command_file="/app/src/commands/command.json"):
     os.makedirs("received_photos", exist_ok=True)
 
@@ -192,12 +238,15 @@ async def main(target, command_file="/app/src/commands/command.json"):
 
     # First, send the scan command to gate_handler
     logger.info("Sending scan command to gate handler...")
-    scan_result = await run_scan_command_sender()
 
-    if scan_result:
-        logger.info(f"Scan completed with result: {scan_result}")
-    else:
-        logger.warning("Scan command completed but no result was returned")
+    await run_remove_wall_e(4)
+
+    # scan_result = await run_scan_command_sender()
+
+    # if scan_result:
+    #     logger.info(f"Scan completed with result: {scan_result}")
+    # else:
+    #     logger.warning("Scan command completed but no result was returned")
 
     # Start all controllers concurrently
     target_ids = target.split(",")

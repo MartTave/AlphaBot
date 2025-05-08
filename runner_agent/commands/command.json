@@ -1,8 +1,4 @@
 {
   "commands": [
-    {
-      "command": "forward",
-      "args": ["200"]
-    }
   ]
 }

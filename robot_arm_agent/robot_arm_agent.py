@@ -82,7 +82,7 @@ class RobotArmAgent(agent.Agent):
             # from home position to ready to grab position
             for i in range(2,-1,-1):
                 sleep(0.05)
-                self.agent.iscoin.robot_control.movej(dispose_wall_traj[i], a = radians(80), v = radians(30))
+                self.move_robot(dispose_wall_traj[i])
                 sleep(0.05)
                 
             # gets the wall

@@ -1050,7 +1050,7 @@ class AlphaBot2(object):
         if self.botN == "1":
             curr_path, other_path, myPathReduced = pathfinder.collision_paths(path_robo1, path_robo2)
         else:
-            curr_path, other_path, myPathReduced = pathfinder.collision_paths(path_robo2, path_robo1)
+            other_path, curr_path, myPathReduced = pathfinder.collision_paths(path_robo2, path_robo1)
 
         if len(curr_path) > 1 and len(robot) > 3:
             w = abs(top_left[0] - bottom_right[0]) / 11

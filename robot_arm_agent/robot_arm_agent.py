@@ -70,7 +70,7 @@ class RobotArmAgent(agent.Agent):
         def __init__(self, wall_id):
             super().__init__()
             self.wall_id = int(wall_id)
-            print("id:", self.id)
+            print("id:", self.wall_id)
 
         def move_robot(self, joint_pos):
             jo = Joint6D.createFromRadList(joint_pos)
@@ -113,9 +113,10 @@ class RobotArmAgent(agent.Agent):
             msg = await self.receive(timeout=9999)
             if msg:
                 print("Received wall removal request.")
-                id = str(msg.body)
+                wall_id = str(msg.body)
+                print("LE ID RECU: ", wall_id)
                 self.agent.add_behaviour(
-                    self.agent.MoveWallBehaviour(id=id)
+                    self.agent.MoveWallBehaviour(wall_id=wall_id)
                 )
 
 

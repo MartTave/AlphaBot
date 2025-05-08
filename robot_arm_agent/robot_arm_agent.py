@@ -69,8 +69,8 @@ class RobotArmAgent(agent.Agent):
     class MoveWallBehaviour(behaviour.OneShotBehaviour):
         def __init__(self, id):
             super().__init__()
-            self.id = id
-            print(id)
+            self.id = int(id)
+            print("id:", self.id)
 
         def move_robot(self, joint_pos):
             jo = Joint6D.createFromRadList(joint_pos)

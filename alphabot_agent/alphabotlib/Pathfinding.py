@@ -68,17 +68,16 @@ class Pathfinding:
         if start == -1:
             return []
         try:
-            self.__find_path(stop, [self.nodes[start]])
-            return 
+            return self.__find_path(stop, [self.nodes[start]])
         except Exception as e:
             print(e)
             return []
-        
+
     def collision_paths(self, path1, path2):
         collision = self.problem_detect(path1, path2)
         if collision == -1:
             return path1, path2, False
-        
+
         explored_hideouts_1 = []
         explored_hideouts_2 = []
         explore = collision
@@ -90,7 +89,7 @@ class Pathfinding:
             for i in self.nodes[path1[explore]].conn:
                 if i not in path2:
                     explored_hideouts_1.append(i)
-            
+
             for i in self.nodes[path2[explore]].conn:
                 if i not in path1:
                     explored_hideouts_2.append(i)
@@ -99,12 +98,12 @@ class Pathfinding:
                 path1 = path1[:explore+1]
                 path1.append(i)
                 return path1, path2[:collision+1], True
-            
+
             for i in explored_hideouts_2:
                 path2 = path2[:explore+1]
                 path2.append(i)
                 return path1[:collision+1], path2, True
-    
+
 
     def draw_on_pic(self, path, path2, top_left, bottom_right, save_image=False):
         import base64

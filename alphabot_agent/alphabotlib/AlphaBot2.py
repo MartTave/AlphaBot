@@ -41,6 +41,8 @@ class AlphaBot2(object):
         self.target = None
         self.other_target = None
 
+        self.samePlaceCounter = 0
+        self.oldPlace = None
 
 
         self.botN = botn.split("-")[-1]
@@ -133,10 +135,12 @@ class AlphaBot2(object):
             file.write(json.dumps(self.config_file))
 
     def resetForNewRun(self):
+        self.samePlaceCounter = 0
         self.labyrinth = None
         self.hasPrio = None
         self.target = None
         self.other_target = None
+        self.oldPlace = None
         logger.info("Resetted for a new run of the labyrinth !")
 
     def GPIOSetup(self, ain1, ain2, bin1, bin2, ena, enb):
@@ -1042,15 +1046,34 @@ class AlphaBot2(object):
             else:
                 self.hasPrio = self.botN == "1"
                 logger.info(f"I {'do not' if not self.hasPrio else ''} have priority because of my bot number")
-
-        #curr_path, other_path, myPathReduced = pathfinder.avoid_collision(curr_path=path_robo1, other_path=path_robo2, hasPrio=self.hasPrio)
         curr_path = []
         other_path = []
         myPathReduced = False
-        if self.botN == "1":
-            curr_path, other_path, myPathReduced = pathfinder.collision_paths(path_robo1, path_robo2)
-        else:
-            other_path, curr_path, myPathReduced = pathfinder.collision_paths(path_robo2, path_robo1)
+
+        curr_path, other_path, myPathReduced = pathfinder.avoid_collision(curr_path=path_robo1, other_path=path_robo2, hasPrio=self.hasPrio)
+
+        # if self.botN == "1":
+        #     curr_path, other_path, myPathReduced = pathfinder.collision_paths(path_robo1, path_robo2)
+        # else:
+        #     other_path, curr_path, myPathReduced = pathfinder.collision_paths(path_robo2, path_robo1)
+
+        if len(curr_path) != 0:
+            # Then we are not arrived
+            if self.oldPlace is not None and self.oldPlace == robot[0]:
+                logger.warning("I'm at the same place as before...")
+                self.samePlaceCounter += 1
+            if self.samePlaceCounter >= 2:
+                logger.warning("I'm stuck at the same place... unblocking !")
+                # backward, then malade to unstuck
+                self.backward()
+                time.sleep(0.2)
+                self.safeForward(500, blocking=True, allowBackward=True)
+                self.samePlaceCounter = 0
+                # We exit the function saying we did not arrive
+                return False
+            if self.oldPlace is None or self.oldPlace != robot[0]:
+                self.samePlaceCounter = 0
+            self.oldPlace = robot[0]
 
         if len(curr_path) > 1 and len(robot) > 3:
             w = abs(top_left[0] - bottom_right[0]) / 11

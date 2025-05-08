@@ -78,7 +78,6 @@ class RobotArmAgent(agent.Agent):
             sleep(0.1)
 
         async def run(self):
-            self.agent.processing_complete.clear()
 
             # from home position to ready to grab position
             for i in range(2,-1,-1):
@@ -99,7 +98,6 @@ class RobotArmAgent(agent.Agent):
 
             self.agent.iscoin.gripper.open()
 
-            self.agent.processing_complete.set()
 
 
     class WaitForRequestBehaviour(behaviour.CyclicBehaviour):

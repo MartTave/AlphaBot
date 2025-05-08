@@ -4,7 +4,7 @@ from spade import agent, behaviour
 from spade.message import Message
 
 from math import radians
-from urbasic.URBasic import Joint6D, ISCoin
+from src.urbasic.URBasic import Joint6D, ISCoin
 
 points_trajs = [
     [

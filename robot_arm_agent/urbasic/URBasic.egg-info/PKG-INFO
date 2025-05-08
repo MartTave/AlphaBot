@@ -1,4 +1,4 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: URBasic
 Version: 0.0.1
 Summary: Python library to control an UR robot
@@ -13,9 +13,14 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: System :: Hardware :: Hardware Drivers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides: URBasic
+Requires-Python: >=3.10,<3.12
+Requires-Dist: opencv-python
+Requires-Dist: requests
 Dynamic: author
 Dynamic: classifier
 Dynamic: home-page
 Dynamic: license
 Dynamic: provides
+Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary

@@ -73,7 +73,7 @@ class RobotArmAgent(agent.Agent):
 
         def move_robot(self, joint_pos):
             jo = Joint6D.createFromRadList(joint_pos)
-            #self.agent.iscoin.robot_control.movej(jo, a = radians(80), v = radians(30))
+            self.agent.iscoin.robot_control.movej(jo, a = radians(40), v = radians(15))
             print(f"ahah I moved to {jo}")
             sleep(0.1)
 

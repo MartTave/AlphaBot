@@ -1,0 +1,21 @@
+Metadata-Version: 2.2
+Name: URBasic
+Version: 0.0.1
+Summary: Python library to control an UR robot
+Home-page: https://github.com/oroulet/python-urx
+Author: Mandelbr0t
+License: GNU Lesser General Public License v3
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: System :: Hardware :: Hardware Drivers
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Provides: URBasic
+Dynamic: author
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: provides
+Dynamic: summary

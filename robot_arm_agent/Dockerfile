@@ -4,12 +4,7 @@ WORKDIR /app
 
 # Install runtime dependencies (no build tools needed for wheels!)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 \
-    libglib2.0-0 \
     git \
-    libsm6 \
-    libxext6 \
-    libxrender1 \
     build-essential \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -21,6 +16,5 @@ COPY ./*.python-version ./src/
 
 # Sync dependencies (will use pre-built wheels for OpenCV)
 RUN uv sync --project ./src
-RUN uv sync --project ./src -P camera_sync
 
 CMD ["uv", "run", "--project", "./src/", "-m", "src"]

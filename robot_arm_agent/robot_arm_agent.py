@@ -67,9 +67,9 @@ class RobotArmAgent(agent.Agent):
 
 
     class MoveWallBehaviour(behaviour.OneShotBehaviour):
-        def __init__(self, id):
+        def __init__(self, wall_id):
             super().__init__()
-            self.id = int(id)
+            self.wall_id = int(wall_id)
             print("id:", self.id)
 
         def move_robot(self, joint_pos):
@@ -87,13 +87,13 @@ class RobotArmAgent(agent.Agent):
                 sleep(0.05)
                 
             # gets the wall
-            self.move_robot(points_trajs[id-1][0])
+            self.move_robot(points_trajs[self.wall_id-1][0])
             self.agent.iscoin.gripper.open()
             sleep(0.2)
-            self.move_robot(points_trajs[id-1][1])
+            self.move_robot(points_trajs[self.wall_id-1][1])
             self.agent.iscoin.gripper.close()
             sleep(0.2)
-            self.move_robot(points_trajs[id-1][0])
+            self.move_robot(points_trajs[self.wall_id-1][0])
 
             # from grab position to home position
             for i in range(3):

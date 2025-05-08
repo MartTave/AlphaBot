@@ -6,7 +6,7 @@
     "targetArucoId": 14,
     "forwardCorrection": -1,
     "turnSpeed": 15,
-    "turnBrakingTime": 15,
+    "turnBrakingTime": 20,
     "forwardSpeed": 30,
     "forwardBrakingTime": 50,
     "forwardA": 2.5,

@@ -1043,7 +1043,14 @@ class AlphaBot2(object):
                 self.hasPrio = self.botN == "1"
                 logger.info(f"I {'do not' if not self.hasPrio else ''} have priority because of my bot number")
 
-        curr_path, other_path, myPathReduced = pathfinder.avoid_collision(curr_path=path_robo1, other_path=path_robo2, hasPrio=self.hasPrio)
+        #curr_path, other_path, myPathReduced = pathfinder.avoid_collision(curr_path=path_robo1, other_path=path_robo2, hasPrio=self.hasPrio)
+        curr_path = []
+        other_path = []
+        myPathReduced = False
+        if self.botN == "1":
+            curr_path, other_path, myPathReduced = pathfinder.collision_paths(path_robo1, path_robo2)
+        else:
+            curr_path, other_path, myPathReduced = pathfinder.collision_paths(path_robo2, path_robo1)
 
         if len(curr_path) > 1 and len(robot) > 3:
             w = abs(top_left[0] - bottom_right[0]) / 11

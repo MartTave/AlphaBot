@@ -1,6 +1,5 @@
 from time import sleep
 
-from aiohttp import web
 from spade import agent, behaviour
 from spade.message import Message
 
@@ -60,7 +59,7 @@ dispose_wall_traj = [
     Joint6D([-0.5285447279559534, -1.9231578312315882, 1.5395382086383265, -1.1340871912292023, -1.5176118055926722, -2.0354960600482386])
 ]
 
-class CameraAgent(agent.Agent):
+class RobotArmAgent(agent.Agent):
     def __init__(self, jid, password):
         super().__init__(jid, password)
         self.iscoin = ISCoin(host="10.30.5.158")

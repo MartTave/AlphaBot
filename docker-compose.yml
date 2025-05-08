@@ -45,6 +45,21 @@ services:
       xmpp_network:
         ipv4_address: 172.20.0.6
 
+  robot_arm_agent:
+    build: ./robot_arm_agent/
+    container_name: robot_arm_agent
+    volumes:
+      - ./robot_arm_agent:/app/src
+    privileged: true
+    env_file: ./env/prosody.env
+    environment:
+      - XMPP_USERNAME=robot_arm_agent
+    extra_hosts:
+      - "prosody:${PROSODY_IP}"
+    networks:
+      xmpp_network:
+        ipv4_address: 172.20.0.6
+
   prosody:
     image: prosody:latest
     container_name: prosody

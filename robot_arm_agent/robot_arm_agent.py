@@ -70,6 +70,7 @@ class RobotArmAgent(agent.Agent):
         def __init__(self, id):
             super().__init__()
             self.id = id
+            print(id)
 
         def move_robot(self, joint_pos):
             jo = Joint6D.createFromRadList(joint_pos)
@@ -86,16 +87,19 @@ class RobotArmAgent(agent.Agent):
                 sleep(0.05)
                 
             # gets the wall
-            self.move_robot(points_trajs[i][0])
+            self.move_robot(points_trajs[id-1][0])
             self.agent.iscoin.gripper.open()
-            self.move_robot(points_trajs[i][1])
+            sleep(0.2)
+            self.move_robot(points_trajs[id-1][1])
             self.agent.iscoin.gripper.close()
-            self.move_robot(points_trajs[i][0])
+            sleep(0.2)
+            self.move_robot(points_trajs[id-1][0])
 
             # from grab position to home position
             for i in range(3):
                 self.move_robot(dispose_wall_traj[i])
 
+            sleep(0.2)
             self.agent.iscoin.gripper.open()
 
 

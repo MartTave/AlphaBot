@@ -6,9 +6,10 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "aiofiles==23.2.1",
+    "pillow",
     "scipy>=1.15.2",
     "spade==3.3.3",
-    "urbasic",
+    "urbasic"
 ]
 
 [tool.uv.sources]

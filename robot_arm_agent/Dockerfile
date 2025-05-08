@@ -5,6 +5,7 @@ WORKDIR /app
 # Install runtime dependencies (no build tools needed for wheels!)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
+    libgl1 \
     build-essential \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*

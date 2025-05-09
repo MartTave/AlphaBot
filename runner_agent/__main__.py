@@ -236,10 +236,12 @@ async def main(target, command_file="/app/src/commands/command.json"):
         data = json.load(file)
     commands = data["commands"]
 
+    # await run_remove_wall_e(6)
+
+
     # First, send the scan command to gate_handler
     logger.info("Sending scan command to gate handler...")
 
-    await run_remove_wall_e(6)
 
     # scan_result = await run_scan_command_sender()
 

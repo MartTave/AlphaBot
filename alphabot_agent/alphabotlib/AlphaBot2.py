@@ -989,7 +989,7 @@ class AlphaBot2(object):
             else:
                 self.aruco_retry_counter = 0
                 logger.warning("Activating malade mode to unstuck")
-                self.safeForward(mm=1500, blocking=True, allowBackward=True)
+                self.safeForward(mm=500, blocking=True, allowBackward=True)
 
         return self.runMaze(robot, self.target, other_robot, self.other_target, (grid_left, grid_top), (grid_right, grid_down))
 
@@ -1067,6 +1067,8 @@ class AlphaBot2(object):
                 # backward, then malade to unstuck
                 self.backward()
                 time.sleep(0.2)
+                self.left()
+                time.sleep(0.1)
                 self.safeForward(500, blocking=True, allowBackward=True)
                 self.samePlaceCounter = 0
                 # We exit the function saying we did not arrive

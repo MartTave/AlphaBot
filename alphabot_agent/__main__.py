@@ -111,7 +111,7 @@ class AlphaBotAgent(Agent):
 
     class ReceiveOtherRobotArrived(OneShotBehaviour):
         async def run(self):
-            msg = await self.receive(timeout=10)
+            msg = await self.receive(timeout=1200)
             if not msg:
                 self.agent.add_behaviour(self.agent.ReceiveOtherRobotArrived(), fromRobotTemplate)
                 return

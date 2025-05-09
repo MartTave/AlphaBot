@@ -88,18 +88,20 @@ class RobotArmAgent(agent.Agent):
                 
             # gets the wall
             self.move_robot(points_trajs[self.wall_id-1][0])
+            sleep(0.75)
             self.agent.iscoin.gripper.open()
-            sleep(0.2)
+            sleep(0.75)
             self.move_robot(points_trajs[self.wall_id-1][1])
+            sleep(0.75)
             self.agent.iscoin.gripper.close()
-            sleep(0.2)
+            sleep(0.75)
             self.move_robot(points_trajs[self.wall_id-1][0])
 
             # from grab position to home position
             for i in range(3):
                 self.move_robot(dispose_wall_traj[i])
 
-            sleep(0.2)
+            sleep(0.75)
             self.agent.iscoin.gripper.open()
 
 

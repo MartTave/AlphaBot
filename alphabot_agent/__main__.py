@@ -106,7 +106,7 @@ class AlphaBotAgent(Agent):
 
         async def run(self):
             logger.info("WE CAN FINISH THE MAZE !")
-            self.agent.robot.safeForward(200, blocking=True)
+            self.agent.robot.safeForward(500, blocking=True)
             # logger.info("Finished the maze !")
 
     class ReceiveOtherRobotArrived(OneShotBehaviour):

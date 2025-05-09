@@ -239,7 +239,7 @@ async def main(target, command_file="/app/src/commands/command.json"):
     # First, send the scan command to gate_handler
     logger.info("Sending scan command to gate handler...")
 
-    await run_remove_wall_e(4)
+    # await run_remove_wall_e(4)
 
     # scan_result = await run_scan_command_sender()
 

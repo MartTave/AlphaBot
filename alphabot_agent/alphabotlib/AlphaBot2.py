@@ -1050,12 +1050,12 @@ class AlphaBot2(object):
         other_path = []
         myPathReduced = False
 
-        curr_path, other_path, myPathReduced = pathfinder.avoid_collision(curr_path=path_robo1, other_path=path_robo2, hasPrio=self.hasPrio)
+        #curr_path, other_path, myPathReduced = pathfinder.avoid_collision(curr_path=path_robo1, other_path=path_robo2, hasPrio=self.hasPrio)
 
-        # if self.botN == "1":
-        #     curr_path, other_path, myPathReduced = pathfinder.collision_paths(path_robo1, path_robo2)
-        # else:
-        #     other_path, curr_path, myPathReduced = pathfinder.collision_paths(path_robo2, path_robo1)
+        if self.botN == "1":
+            curr_path, other_path, myPathReduced = pathfinder.collision_paths(path_robo1, path_robo2)
+        else:
+            other_path, curr_path, myPathReduced = pathfinder.collision_paths(path_robo2, path_robo1)
 
         if len(curr_path) != 0:
             # Then we are not arrived

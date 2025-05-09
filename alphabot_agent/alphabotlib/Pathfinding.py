@@ -74,6 +74,9 @@ class Pathfinding:
             return []
 
     def collision_paths(self, path1, path2):
+        logger.error(f"[COLLISION] path1 --> {path1}")
+        logger.error(f"[COLLISION] path2 --> {path2}")
+
         collision = self.problem_detect(path1, path2)
         if collision == -1:
             return path1, path2, False
@@ -84,8 +87,17 @@ class Pathfinding:
         while True:
             explore -= 1
             if explore == -1:
-                print("no solution whaaaaaat")
-                break
+                try:
+                    if path1[0] not in path2:
+                        return [], path2, True
+                    elif path2[0] not in path1:
+                        return path1, [], True
+                    else:
+                        logger.error("oh no...")
+                        return [], [], True
+                except:
+                    return path1, path2, False
+            
             for i in self.nodes[path1[explore]].conn:
                 if i not in path2:
                     explored_hideouts_1.append(i)
@@ -94,15 +106,19 @@ class Pathfinding:
                 if i not in path1:
                     explored_hideouts_2.append(i)
 
+            logger.error(f"[COLLISION] Hideouts1 --> {explored_hideouts_1}")
+            logger.error(f"[COLLISION] Hideouts2 --> {explored_hideouts_2}")
+
             for i in explored_hideouts_1:
                 path1 = path1[:explore+1]
                 path1.append(i)
                 return path1, path2[:collision+1], True
-
-            for i in explored_hideouts_2:
-                path2 = path2[:explore+1]
-                path2.append(i)
-                return path1[:collision+1], path2, True
+            
+            # for i in explored_hideouts_2:
+            #     path2 = path2[:explore+1]
+            #     path2.append(i)
+            #     self.hiding = 2
+            #     return path1[:collision+1], path2, True
 
 
     def draw_on_pic(self, path, path2, top_left, bottom_right, save_image=False):
@@ -228,7 +244,7 @@ class Pathfinding:
             elif i == paths[1][idx + 1]:
                 if paths[1][idx] == paths[0][idx + 1]:
                     return idx
-        return False
+        return -1
 
     def get_json_from_path(self, path, towards=None):
         prev = ""
